@@ -4,15 +4,15 @@ Kadena wallet for developers, written in Blazor WebAssembly. A better name is pr
 
 ## Features
 
-[x] Network selection
-[x] Balance queries on multiple accounts and tokens
-[ ] Token transfers (same chain)
-[ ] Token transfers (cross-chain)
-[x] Transaction execution preview
-[ ] Transaction submission
-[ ] Transaction signing with keypair
-[ ] External signatures
-[ ] Transaction import (yaml, json, on-chain tx)
-[ ] Transaction export (yaml, json)
-[x] Pact syntax highlighting
-[ ] Code suggestions for on-chain Pact modules
+- [x] Network selection
+- [x] Balance queries on multiple accounts and tokens
+- [ ] Token transfers (same chain)
+- [ ] Token transfers (cross-chain)
+- [x] Transaction execution preview
+- [ ] Transaction submission
+- [ ] Transaction signing with keypair
+- [ ] External signatures
+- [ ] Transaction import (yaml, json, on-chain tx)
+- [ ] Transaction export (yaml, json)
+- [x] Pact syntax highlighting
+- [ ] Code suggestions for on-chain Pact modules
