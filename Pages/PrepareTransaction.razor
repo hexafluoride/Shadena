@@ -49,11 +49,15 @@
                 <div class="mb-3">
                     <label>Signatures</label>
                     @{
+                        if (!cmdModel.Command.Signers.Any())
+                        {
+                            <p><small>No signers have been added yet.</small></p>
+                        }
                         int i = 0;
                         foreach (var signer in cmdModel.Command.Signers)
                         {
                             var signerIndex = i++;
-                            <InputText class="form-control" @bind-Value="cmdModel.Signatures[signerIndex].Signature" placeholder="@($"Signature of {signer.PubKey}")"/>
+                            <InputText class="form-control" @bind-Value="cmdModel.Signatures[signerIndex].Signature" placeholder="@($"Signature from {signer.PubKey}")"/>
                         }
                     }
                 </div>
