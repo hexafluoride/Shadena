@@ -1,0 +1,129 @@
+@page "/PrepareTransaction"
+@using System.Text.Json
+
+@inject PactHttpClient pactClient
+@inject IJSRuntime JS
+
+
+<div class="container">
+
+    <h3>Prepare transaction</h3>
+    <div class="row">
+        <div class="col-8">
+            <div id="code-container" style="height:80vh; border:1px solid #cccccc;"></div>
+        </div>
+        <div class="col @(inputEnabled ? "" : "loadingQuick")">
+            <div class="mb-3">
+                <textarea class="form-control" style="font-family: monospace; min-height:25vh; background-color: #fefefe;" readonly="readonly" @bind="resultsText"></textarea>
+            </div>
+            
+            <EditForm Model="cmdModel">
+                <DataAnnotationsValidator/>
+                <ValidationSummary/>
+
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col">
+                            <button class="btn btn-primary" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
+                        </div>
+                        <div class="col">
+                            <button class="btn btn-success" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Sender</label>
+                    <InputText class="form-control" @bind-Value="cmdModel.Command.Metadata.Sender"/>
+                </div>
+                <div class="mb-3">
+                    <label>Chain</label>
+                    <InputSelect class="form-select" @bind-Value="cmdModel.Command.Metadata.ChainId">
+                        @foreach (var chain in pactClient.RecognizedChains)
+                        {
+                            <option value="@chain">@chain</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col">
+                            <label>Gas limit</label>
+                            <InputNumber class="form-control" placeholder="1500" aria-label="Gas limit" @bind-Value="cmdModel.Command.Metadata.GasLimit"/>
+                        </div>
+                        <div class="col">
+                            <lable>Gas price</lable>
+                            <InputNumber class="form-control" placeholder="0.00001" aria-label="Gas price" @bind-Value="cmdModel.Command.Metadata.GasPrice"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col">
+                            <label>Time to live</label>
+                            <InputNumber class="form-control" placeholder="3600" aria-label="Time to live" @bind-Value="cmdModel.Command.Metadata.Ttl"/>
+                        </div>
+                        <div class="col">
+                            <lable>Creation time</lable>
+                            <InputNumber class="form-control" aria-label="Creation time" @bind-Value="cmdModel.Command.Metadata.CreationTime"/>
+                        </div>
+                    </div>
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected PactCommand cmdModel { get; set; }
+
+    bool inputEnabled = true;
+    string resultsText = "Execution result will appear here.";
+
+    JsonSerializerOptions humanReadableSerializationOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+    
+    protected override async Task OnInitializedAsync()
+    {
+        cmdModel = pactClient.BuildCommand(pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        await JS.InvokeVoidAsync("window.initializeEditor");
+    }
+
+    protected async Task PreviewTransaction()
+    {
+        inputEnabled = false;
+        StateHasChanged();
+
+        cmdModel.Command.Payload.Exec.Code = await JS.InvokeAsync<string>("window.editorContext.editor.getValue");
+        cmdModel = pactClient.BuildCommand(cmdModel.Command);
+
+        var resp = await pactClient.ExecuteLocalAsync(cmdModel);
+
+        if (resp == null)
+        {
+            resultsText = "Execution returned null.";
+        }
+        else
+        {
+            if (resp.Result.Status != "success")
+            {
+                resultsText = $"Execution was unsuccessful.\n" +
+                              resp.Result.Error.Message + "\n" +
+                              resp.Result.Error.Info + "\n" +
+                              string.Join('\n', resp.Result.Error.CallStack) + "\n" +
+                              resp.Result.Error.Type;
+            }
+            else
+            {
+                resultsText = JsonSerializer.Serialize(resp.Result.Data, humanReadableSerializationOptions);
+            }
+        }
+        StateHasChanged();
+
+        inputEnabled = true;
+        StateHasChanged();
+    }
+}

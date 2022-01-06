@@ -1,0 +1,102 @@
+@using System.Diagnostics.CodeAnalysis
+
+<h3>
+    Account <span class="font-monospace">@AccountName</span>
+</h3>
+
+<table class="table align-middle">
+    <thead>
+    <tr>
+        <th>Token</th>
+        <th>Total balance</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var pair in TokenBalances)
+    {
+        var id = $"balance-{AccountName}-{pair.Key.Replace('.','-')}";
+        
+        <tr>
+            <td>@pair.Key</td>
+            <td>@pair.Value</td>
+            <td>
+                <button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#@id" aria-expanded="False" aria-controls="@id">
+                    See chain distribution
+                </button>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="12" class="hiddenRow">
+                <div class="accordion-body collapse" id="@id">
+                    <div class="container-fluid">
+                        <div class="row row-cols-auto align-content-center">
+                            @foreach (var account in TokenAccounts[pair.Key])
+                            {
+                                <div class="col" style="@(account.Account != AccountName ? "opacity:0.6;" : "")">
+                                    <strong>@account.Chain</strong>
+                                    <pre>@account.Balance</pre>
+                                </div>   
+                            }
+                        </div>
+                    </div>
+                    @* <table class="table table-sm"> *@
+                    @*     <thead> *@
+                    @*     <tr> *@
+                    @*         <th>Chain</th> *@
+                    @*         <th>Balance</th> *@
+                    @*     </tr></thead> *@
+                    @*     <tbody> *@
+                    @*     @foreach (var account in TokenAccounts[pair.Key]) *@
+                    @*     { *@
+                    @*         <tr> *@
+                    @*             <td>@account.Chain</td> *@
+                    @*             <td>@account.Balance</td> *@
+                    @*         </tr> *@
+                    @*     } *@
+                    @*     </tbody> *@
+                    @* </table> *@
+                </div>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    [Parameter]
+    public string[] Tokens { get; set; }
+    
+    [Parameter]
+    public string AccountName { get; set; }
+    
+    [Parameter]
+    public List<FungibleV2Account> Accounts { get; set; }
+    //public EventCallback<List<FungibleV2Account>> AccountsChanged { get; set; }
+    protected Dictionary<string, decimal> TokenBalances { get; set; } = new();
+    protected Dictionary<string, List<FungibleV2Account>> TokenAccounts { get; set; } = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var accountsFiltered = Accounts;
+
+        TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
+        TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // var accountsFiltered = Accounts;
+        //
+        // TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
+        // TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
+    }
+
+    void AccountsChanged(ChangeEventArgs e)
+    {
+        var accountsFiltered = Accounts;
+
+        TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
+        TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
+    }
+}

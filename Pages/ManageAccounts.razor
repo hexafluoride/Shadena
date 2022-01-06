@@ -1,0 +1,88 @@
+@page "/"
+@page "/ManageAccounts"
+@using System.ComponentModel.DataAnnotations
+
+@implements IDisposable
+
+@inject NavigationManager navigationManager
+@inject Shadena.IAccountsManager accountsManager
+
+<div class="container">
+    <h2>Manage accounts</h2>
+    <hr/>
+
+    <h3>Add account</h3>
+
+    <EditForm Model="addModel" OnValidSubmit="@AddAccount">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        
+        <div class="input-group">
+            <InputText @bind-Value="addModel.Name" class="form-control" placeholder="Account name..."></InputText>
+            <button class="btn btn-outline-primary" type="submit"><span class="oi oi-plus" aria-hidden="true"></span> Add</button>
+        </div>
+    </EditForm>
+
+    <hr/>
+
+    <TableTemplate Items="accounts">
+        <TableHeader>
+            <th>Account name</th>
+            <th></th>
+        </TableHeader>
+        <RowTemplate>
+            <td>@context.Name</td>
+            <td class="col-2">
+                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveAccount(context))">
+                    <span class="oi oi-minus" aria-hidden="true"></span> Remove
+                </button>
+            </td>
+        </RowTemplate>
+    </TableTemplate>
+</div>
+@code {
+    private List<AccountIdentifier> accounts = new List<AccountIdentifier>();
+    private AddAccountModel addModel = new AddAccountModel();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAccounts();
+        navigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private async void HandleLocationChanged(object? sender, object e)
+    {
+        await RefreshAccounts();
+    }
+
+    public void Dispose()
+    {
+        navigationManager.LocationChanged -= HandleLocationChanged;
+    }
+
+    protected async Task RefreshAccounts()
+    {
+        accounts = (await accountsManager.GetAccountsRegisteredAsync()).ToList();
+    }
+
+    private async Task AddAccount()
+    {
+        await accountsManager.AddAccountAsync(addModel.Name);
+        addModel.Name = "";
+
+        await RefreshAccounts();
+    }
+
+    private async Task RemoveAccount(AccountIdentifier account)
+    {
+        await accountsManager.RemoveAccountAsync(account);
+        await RefreshAccounts();
+    }
+
+    public class AddAccountModel
+    {
+        [Required]
+        public string Name { get; set; }
+    }
+
+}
