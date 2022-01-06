@@ -1,7 +1,9 @@
 @page "/PrepareTransaction"
 @using System.Text.Json
+@using System.Timers
 
-@inject PactHttpClient pactClient
+@inject IAccountsManager _accountsManager
+@inject PactHttpClient _pactClient
 @inject IJSRuntime JS
 
 
@@ -9,15 +11,23 @@
 
     <h3>Prepare transaction</h3>
     <div class="row">
-        <div class="col-8">
-            <div id="code-container" style="height:80vh; border:1px solid #cccccc;"></div>
+        <div class="col-xl-8" id="code-outer">
+            
+            <div class="mb-3">
+                <div id="code-container" style="height:80vh; border:1px solid #cccccc;"></div>
+            </div>
+            
+            <div class="mb-3">
+                <h4>Signers</h4>
+                <SignersControl Signers="@cmdModel.Command.Signers" SignersChanged="@(() => FieldChanged(null, null))"></SignersControl>
+            </div>
         </div>
-        <div class="col @(inputEnabled ? "" : "loadingQuick")">
+        <div class="col-xl-4 @(inputEnabled ? "" : "loadingQuick")">
             <div class="mb-3">
                 <textarea class="form-control" style="font-family: monospace; min-height:25vh; background-color: #fefefe;" readonly="readonly" @bind="resultsText"></textarea>
             </div>
             
-            <EditForm Model="cmdModel">
+            <EditForm EditContext="editContext">
                 <DataAnnotationsValidator/>
                 <ValidationSummary/>
 
@@ -27,19 +37,42 @@
                             <button class="btn btn-primary" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
                         </div>
                         <div class="col">
-                            <button class="btn btn-success" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
+                            <button class="btn btn-success" type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
                         </div>
                     </div>
                 </div>
-
+                <div class="mb-3">
+                    <label>Transaction hash</label>
+                    <input class="form-control font-monospace" id="tx-hash" type="text" readonly="readonly" @bind="cmdModel.Hash" onclick="navigator.clipboard.writeText(document.getElementById('tx-hash').value)" />
+                </div>
+                
+                <div class="mb-3">
+                    <label>Signatures</label>
+                    @{
+                        int i = 0;
+                        foreach (var signer in cmdModel.Command.Signers)
+                        {
+                            var signerIndex = i++;
+                            <InputText class="form-control" @bind-Value="cmdModel.Signatures[signerIndex].Signature" placeholder="@($"Signature of {signer.PubKey}")"/>
+                        }
+                    }
+                </div>
+                
                 <div class="mb-3">
                     <label>Sender</label>
-                    <InputText class="form-control" @bind-Value="cmdModel.Command.Metadata.Sender"/>
+                    <InputText class="form-control" list="registered-accounts" @bind-Value="cmdModel.Command.Metadata.Sender"/>
+                    
+                    <datalist id="registered-accounts">
+                        @foreach (var account in accounts)
+                        {
+                            <option value="@account.Name" />
+                        }
+                    </datalist>
                 </div>
                 <div class="mb-3">
                     <label>Chain</label>
                     <InputSelect class="form-select" @bind-Value="cmdModel.Command.Metadata.ChainId">
-                        @foreach (var chain in pactClient.RecognizedChains)
+                        @foreach (var chain in _pactClient.RecognizedChains)
                         {
                             <option value="@chain">@chain</option>
                         }
@@ -77,9 +110,13 @@
 
 @code {
     protected PactCommand cmdModel { get; set; }
+    EditContext editContext;
+
+    List<AccountIdentifier> accounts = new();
 
     bool inputEnabled = true;
     string resultsText = "Execution result will appear here.";
+    Timer timer;
 
     JsonSerializerOptions humanReadableSerializationOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
@@ -88,8 +125,72 @@
     
     protected override async Task OnInitializedAsync()
     {
-        cmdModel = pactClient.BuildCommand(pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        editContext = new EditContext(cmdModel);
+        
+        editContext.OnFieldChanged += FieldChanged;
+        
+        accounts = (await _accountsManager.GetAccountsRegisteredAsync()).ToList();
         await JS.InvokeVoidAsync("window.initializeEditor");
+
+        timer = new System.Timers.Timer();
+        timer.Interval = 1000;
+        timer.Elapsed += async (s, e) => CheckForNewCode();
+        timer.Enabled = true;
+    }
+
+    private void FieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        Synchronize();
+    }
+
+    private async Task CheckForNewCode()
+    {
+        var editorCode = await JS.InvokeAsync<string>("window.editorContext.editor.getValue");
+
+        if (cmdModel.Command.Payload.Exec.Code != editorCode)
+        {
+            cmdModel.Command.Payload.Exec.Code = editorCode;
+            Synchronize();
+        }
+    }
+
+    private void SynchronizeSignatures()
+    {
+        if (cmdModel.Command.Signers.Count == cmdModel.Signatures.Length)
+            return;
+        
+        var newSigs = new PactSignature[cmdModel.Command.Signers.Count];
+
+        for (int i = 0; i < newSigs.Length; i++)
+            newSigs[i] = new PactSignature();
+
+        for (int i = 0; i < Math.Min(newSigs.Length, cmdModel.Signatures.Length); i++)
+            newSigs[i] = cmdModel.Signatures[i];
+
+        cmdModel.Signatures = newSigs;
+    }
+
+    private async Task Synchronize()
+    {
+        SynchronizeSignatures();
+        cmdModel.UpdateHash();
+    }
+
+    protected async Task SendTransaction()
+    {
+        inputEnabled = false;
+        StateHasChanged();
+
+        Synchronize();
+        var resp = await _pactClient.SendTransactionAsync(cmdModel);
+
+        resultsText = resp;
+        StateHasChanged();
+
+        inputEnabled = true;
+        StateHasChanged();
+        
     }
 
     protected async Task PreviewTransaction()
@@ -97,10 +198,9 @@
         inputEnabled = false;
         StateHasChanged();
 
-        cmdModel.Command.Payload.Exec.Code = await JS.InvokeAsync<string>("window.editorContext.editor.getValue");
-        cmdModel = pactClient.BuildCommand(cmdModel.Command);
-
-        var resp = await pactClient.ExecuteLocalAsync(cmdModel);
+        Synchronize();
+        
+        var resp = await _pactClient.ExecuteLocalAsync(cmdModel);
 
         if (resp == null)
         {

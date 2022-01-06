@@ -22,7 +22,8 @@ public class PactHttpClient
     
     public static JsonSerializerOptions PactJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+//        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     public List<string> RecognizedChains { get; set; } = new();
@@ -61,11 +62,34 @@ public class PactHttpClient
     private string GetApiUrl(string endpoint, string chain) =>
         $"https://{ApiHost}/chainweb/0.0/{NetworkId}/chain/{chain}/pact{endpoint}";
 
+    public async Task<string> SendTransactionAsync(PactCommand command)
+    {
+        var chain = command.Command.Metadata.ChainId;
+
+        var req = new {cmds = new[] {command}};
+        Console.WriteLine($"Encoded: {JsonSerializer.Serialize(req, PactJsonOptions)}");
+        var resp = await http.PostAsJsonAsync(GetApiUrl($"/api/v1/send", chain), req, PactJsonOptions);
+
+        var respString = await resp.Content.ReadAsStringAsync();
+        
+        try
+        {
+            var parsedResponse = JsonDocument.Parse(respString);
+            return parsedResponse.RootElement.GetProperty("requestKeys")[0].GetString();
+        }
+        catch (Exception e)
+        {
+            return e.Message + "\n" + respString;
+        }
+        
+    }
+
     public async Task<PactCommandResponse> ExecuteLocalAsync(PactCommand command)
     {
         var chain = command.Command.Metadata.ChainId;
+
         Console.WriteLine($"Encoded: {JsonSerializer.Serialize(command, PactJsonOptions)}");
-        var resp = await http.PostAsJsonAsync(GetApiUrl("/api/v1/local", chain), command, PactJsonOptions);
+        var resp = await http.PostAsJsonAsync(GetApiUrl($"/api/v1/local", chain), command, PactJsonOptions);
 
         var respString = await resp.Content.ReadAsStringAsync();
         
@@ -100,7 +124,7 @@ public class PactHttpClient
             Metadata = GenerateMetadata(chain),
             NetworkId = NetworkId,
             Nonce = DateTime.UtcNow.ToLongDateString(),
-            Signers = Array.Empty<PactSigner>(),
+            Signers = new List<PactSigner>(),
             Payload = new PactPayload()
             {
                 Exec = new PactExecPayload()
@@ -250,8 +274,14 @@ public class PactEvent
     [JsonPropertyName("params")]
     public object[] Parameters { get; set; }
     
-    public string Module { get; set; }
+    public PactModuleReference Module { get; set; }
     public string ModuleHash { get; set; }
+}
+
+public class PactModuleReference
+{
+    public string Namespace { get; set; }
+    public string Name { get; set; }
 }
 
 public class PactCommand
@@ -275,6 +305,12 @@ public class PactCommand
     }
 
     private PactCmd _command;
+
+    public void UpdateHash()
+    {
+        CommandEncoded = JsonSerializer.Serialize(_command, PactHttpClient.PactJsonOptions);
+        Hash = CommandEncoded.HashEncoded();
+    }
 }
 
 public class PactCmd
@@ -284,7 +320,7 @@ public class PactCmd
     [JsonPropertyName("meta")]
     public PactMetadata Metadata { get; set; }
     
-    public PactSigner[] Signers { get; set; }
+    public List<PactSigner> Signers { get; set; }
     public string NetworkId { get; set; }
     
     public PactPayload Payload { get; set; }
@@ -327,10 +363,110 @@ public class PactSignature
     public string Signature { get; set; }
 }
 
+public class PactCapability
+{
+    public string Name { get; set; }
+
+    [JsonPropertyName("args")] public List<object> Arguments { get; set; } = new();
+
+    public override string ToString() => 
+        string.IsNullOrWhiteSpace(Name) ? "" : 
+            Arguments.Count == 0 ? $"({Name})" :
+            $"({Name} {string.Join(' ', Arguments)})";
+
+    static List<string> SplitSpaceSeparatedValues(string str)
+    {
+        var ret = new List<string>();
+
+        var quoting = false;
+        string current_run = "";
+        char quote_char = ' ';
+
+        for(int i = 0; i < str.Length; i++)
+        {
+            var current_char = str[i];
+
+            if(quoting && current_char == quote_char)
+            {
+                current_run += current_char;
+                quoting = false;
+
+                if (!string.IsNullOrWhiteSpace(current_run))
+                    ret.Add(current_run);
+
+                current_run = "";
+            }
+            else if (current_char == '"')
+            {
+                quoting = true;
+                quote_char = current_char;
+
+                if (!string.IsNullOrWhiteSpace(current_run))
+                    ret.Add(current_run.TrimEnd(' '));
+
+                current_run = "";
+                current_run += current_char;
+            }
+            else if (!quoting && current_char == ' ')
+            {
+                if (!string.IsNullOrWhiteSpace(current_run))
+                    ret.Add(current_run);
+                current_run = "";
+            }
+            else
+            {
+                current_run += current_char;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(current_run))
+            ret.Add(current_run);
+
+        return ret;
+    }
+    
+    public static PactCapability FromString(string str)
+    {
+        if (str.First() != '(' || str.Last() != ')')
+            return null;
+
+        var parts = SplitSpaceSeparatedValues(str.Substring(1, str.Length - 2));
+        Console.WriteLine($"Split \"{str}\" to {parts.Count} parts: [{string.Join(", ", parts)}]");
+
+        var cap = new PactCapability();
+        cap.Name = parts[0];
+        cap.Arguments = new List<object>();
+
+        foreach (var arg in parts.Skip(1))
+        {
+            if (arg.Length > 1 && arg[0] == '"' && arg[arg.Length - 1] == '"')
+                cap.Arguments.Add(arg.Substring(1, arg.Length - 2));
+            else if (arg.Length > 1 && arg[0] == '\'')
+                cap.Arguments.Add(arg.Substring(1));
+            else if (bool.TryParse(arg, out bool boolArgument))
+                cap.Arguments.Add(boolArgument);
+            else if (int.TryParse(arg, out int intArgument))
+                cap.Arguments.Add(intArgument);
+            else if (decimal.TryParse(arg, out decimal decimalArgument))
+                cap.Arguments.Add(decimalArgument);
+            else
+                return null;
+        }
+
+        return cap;
+    }
+}
+
 public class PactSigner
 {
-    public string Scheme { get; set; }
+    public string Scheme { get; set; } = "ED25519";
     public string PubKey { get; set; }
-    public string[] Caps { get; set; }
+
+    [JsonPropertyName("clist")] public List<PactCapability> Capabilities { get; set; } = new();
     public string Addr { get; set; }
+
+    public PactSigner(string key)
+    {
+        PubKey = key;
+    }
 }

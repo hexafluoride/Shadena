@@ -21,11 +21,19 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/pact-lang-api@4.1.2/pact-lang-api-global.min.js"></script>
+    
     <script src="dev/vs/loader.js"></script>
     <script src="pact-monarch.js"></script>
     <script>
         var lastText = "";
+        
+        window.addEventListener('resize', function() {
+           if (!window.editorContext || !window.editorContext.editor)
+               return;
+           
+           window.editorContext.editor.layout();
+        });
         
         window.checkBackup = function() {
             if (!window.editorContext || !window.editorContext.editor)

@@ -1,14 +1,18 @@
 @typeparam TItem
 @using System.Diagnostics.CodeAnalysis
 
-<table class="table">
+<table class="table @(Classes ?? "")">
     <thead>
     <tr>@TableHeader</tr>
     </thead>
     <tbody>
     @foreach (var item in Items)
     {
-        if (RowTemplate is not null)
+        if (RawRowTemplate is not null)
+        {
+            @RawRowTemplate(item)
+        }
+        else if (RowTemplate is not null)
         {
             <tr>@RowTemplate(item)</tr>
         }
@@ -22,7 +26,13 @@
 
     [Parameter]
     public RenderFragment<TItem>? RowTemplate { get; set; }
+    
+    [Parameter]
+    public RenderFragment<TItem>? RawRowTemplate { get; set; }
 
     [Parameter, AllowNull]
     public IReadOnlyList<TItem> Items { get; set; }
+    
+    [Parameter]
+    public string Classes { get; set; }
 }
