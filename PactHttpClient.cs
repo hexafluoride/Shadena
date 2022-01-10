@@ -7,6 +7,8 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Shadena;
 
@@ -124,7 +126,7 @@ public class PactHttpClient
         {
             Metadata = GenerateMetadata(chain),
             NetworkId = NetworkId,
-            Nonce = DateTime.UtcNow.ToLongDateString(),
+            Nonce = DateTime.UtcNow.ToLongDateString().HashEncoded(),
             Signers = new List<PactSigner>(),
             Payload = new PactPayload()
             {
@@ -311,6 +313,12 @@ public class PactCommand
             CommandEncoded = JsonSerializer.Serialize(_command, PactHttpClient.PactJsonOptions);
         }
     }
+    
+    [JsonIgnore]
+    public string JsonEncoded { get; set; }
+    
+    [JsonIgnore]
+    public string YamlEncoded { get; set; }
 
     private PactCmd _command;
 
@@ -318,20 +326,37 @@ public class PactCommand
     {
         CommandEncoded = JsonSerializer.Serialize(_command, PactHttpClient.PactJsonOptions);
         Hash = CommandEncoded.HashEncoded();
+        JsonEncoded = JsonSerializer.Serialize(this, PactHttpClient.PactJsonOptions);
+        var yamlSerializer =
+            (new YamlDotNet.Serialization.SerializerBuilder()).WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
+            .Build();
+        YamlEncoded = yamlSerializer.Serialize(_command);
     }
 }
 
 public class PactCmd
 {
     public string Nonce { get; set; }
-    
-    [JsonPropertyName("meta")]
-    public PactMetadata Metadata { get; set; }
-    
+
+    [JsonPropertyName("meta")] public PactMetadata Metadata { get; set; }
+
     public List<PactSigner> Signers { get; set; }
     public string NetworkId { get; set; }
+
+    [YamlIgnore] public PactPayload Payload { get; set; }
+
+    [JsonIgnore] public string Code => Payload.Exec.Code;
+
+    [JsonIgnore]
+    public object Data =>
+        YamlDeserializer.Deserialize(new StringReader(Payload.Exec.Data.ToJsonString(PactHttpClient.PactJsonOptions)));
+
+    [JsonIgnore] [YamlMember(Alias = "type")] public string CommandType => Payload.Exec != null ? "exec" : "cont";
     
-    public PactPayload Payload { get; set; }
+    public static IDeserializer YamlDeserializer = (new DeserializerBuilder())
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
 }
 
 public class PactMetadata
@@ -467,9 +492,12 @@ public class PactCapability
 
 public class PactSigner
 {
+    [YamlIgnore]
     public string Scheme { get; set; } = "ED25519";
+    [YamlMember(Alias = "public")]
     public string PubKey { get; set; }
 
+    [YamlMember(Alias = "caps")]
     [JsonPropertyName("clist")] public List<PactCapability> Capabilities { get; set; } = new();
     public string Addr { get; set; }
 
