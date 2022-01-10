@@ -9,6 +9,7 @@
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="Shadena.styles.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -27,6 +28,13 @@
     <script src="js/pact-monarch.js"></script>
     <script src="js/data-entry-helper.js"></script>
     <script>
+        window.initTooltips = function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            })
+        }
+        
         var lastText = "";
         
         window.addEventListener('resize', function() {

@@ -42,12 +42,15 @@
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label>Transaction hash</label>
+                    <label>Transaction hash <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                                  title="Sign this value. Click to copy into clipboard."></span></label>
                     <input class="form-control font-monospace" id="tx-hash" type="text" readonly="readonly" @bind="cmdModel.Hash" onclick="navigator.clipboard.writeText(document.getElementById('tx-hash').value)" />
                 </div>
                 
                 <div class="mb-3">
-                    <label>Signatures</label>
+                    <label>Signatures <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" 
+                                            title="For each signer, provide a signature of the transaction hash. <span class='font-monospace'>pact sign</span> is one way to obtain a signature."></span></label>
+                    
                     @{
                         if (!cmdModel.Command.Signers.Any())
                         {
@@ -141,6 +144,7 @@
         
         accounts = (await _accountsManager.GetAccountsRegisteredAsync()).ToList();
         await JS.InvokeVoidAsync("window.initializeEditor");
+        await JS.InvokeVoidAsync("window.initTooltips");
 
         timer = new System.Timers.Timer();
         timer.Interval = 1000;
