@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -315,7 +316,9 @@ public class PactCommand
     }
     
     [JsonIgnore]
-    public string JsonEncoded { get; set; }
+    public string JsonEncodedForLocal { get; set; }
+    [JsonIgnore]
+    public string JsonEncodedForSend { get; set; }
     
     [JsonIgnore]
     public string YamlEncoded { get; set; }
@@ -326,7 +329,9 @@ public class PactCommand
     {
         CommandEncoded = JsonSerializer.Serialize(_command, PactHttpClient.PactJsonOptions);
         Hash = CommandEncoded.HashEncoded();
-        JsonEncoded = JsonSerializer.Serialize(this, PactHttpClient.PactJsonOptions);
+        JsonEncodedForLocal = JsonSerializer.Serialize(this, PactHttpClient.PactJsonOptions);
+        JsonEncodedForSend = JsonSerializer.Serialize(new {cmds = new[] {this}}, PactHttpClient.PactJsonOptions);
+        
         var yamlSerializer =
             (new YamlDotNet.Serialization.SerializerBuilder()).WithNamingConvention(CamelCaseNamingConvention.Instance)
             .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
@@ -346,7 +351,9 @@ public class PactCmd
 
     [YamlIgnore] public PactPayload Payload { get; set; }
 
-    [JsonIgnore] public string Code => Payload.Exec.Code;
+    [JsonIgnore]
+    [YamlMember(ScalarStyle = ScalarStyle.Literal)]
+    public string Code => Payload.Exec.Code;
 
     [JsonIgnore]
     public object Data =>
@@ -361,6 +368,7 @@ public class PactCmd
 
 public class PactMetadata
 {
+    [YamlMember(ScalarStyle = ScalarStyle.DoubleQuoted)]
     public string ChainId { get; set; }
     public string Sender { get; set; }
     public int GasLimit { get; set; }
