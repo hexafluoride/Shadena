@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace Shadena;
@@ -130,7 +131,7 @@ public class PactHttpClient
                 Exec = new PactExecPayload()
                 {
                     Code = code,
-                    Data = data
+                    Data = JsonObject.Create(JsonSerializer.SerializeToElement(data, PactJsonOptions)) ?? new JsonObject()
                 }
             }
         };
@@ -284,6 +285,13 @@ public class PactModuleReference
     public string Name { get; set; }
 }
 
+public class PactKeyset
+{
+    public List<string> Keys { get; set; } = new();
+
+    [JsonPropertyName("pred")] public string Predicate { get; set; } = "keys-all";
+}
+
 public class PactCommand
 {
     [JsonPropertyName("sigs")]
@@ -345,7 +353,7 @@ public class PactPayload
 public class PactExecPayload
 {
     public string Code { get; set; }
-    public object Data { get; set; }
+    public JsonObject Data { get; set; } = new JsonObject();
 }
 
 public class PactContPayload

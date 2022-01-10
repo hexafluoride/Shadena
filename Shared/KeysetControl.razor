@@ -1,0 +1,61 @@
+
+<div class="mb-3">
+    <div class="input-group">
+        <InputText @bind-Value="newPublicKey" class="form-control" placeholder="Public key..."></InputText>
+        <button class="btn btn-outline-primary" type="button" @onclick="AddPublicKey"><span class="oi oi-plus" aria-hidden="true"></span> Add</button>
+    </div>
+</div>
+<div class="mb-3">
+    <InputText class="form-control" list="keyset-options" @bind-Value="Keyset.Predicate"/>
+    <datalist id="keyset-options">
+        <option value="keys-all" />
+        <option value="keys-any" />
+        <option value="keys-2" />
+    </datalist>
+</div>
+
+<div class="mb-3">
+    <TableTemplate Items="Keyset.Keys">
+        <TableHeader>
+            <th>Public key</th>
+            <th></th>
+        </TableHeader>
+        <RowTemplate>
+            <td class="align-middle text-wrap font-monospace">@context</td>
+            <td class="col-2">
+                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemovePublicKey(context))">
+                    <span class="oi oi-minus" aria-hidden="true"></span> Remove
+                </button>
+            </td>
+        </RowTemplate>
+    </TableTemplate>
+</div>
+
+@code {
+    string newPublicKey { get; set; }
+    
+    [Parameter]
+    public PactKeyset Keyset { get; set; }
+
+    [Parameter]
+    public EventCallback KeysetChanged { get; set; }
+
+    public async Task RemovePublicKey(string key)
+    {
+        Keyset.Keys.Remove(key);
+        await KeysetChanged.InvokeAsync();
+    }
+
+    public async Task AddPublicKey()
+    {
+        if (string.IsNullOrWhiteSpace(newPublicKey))
+        {
+            newPublicKey = "";
+            return;
+        }
+        
+        Keyset.Keys.Add(newPublicKey);
+        newPublicKey = "";
+        await KeysetChanged.InvokeAsync();
+    }
+}
