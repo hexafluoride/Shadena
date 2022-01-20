@@ -1,0 +1,129 @@
+@using Microsoft.AspNetCore.Components
+@using PactSharp
+@using PactSharp.Types
+@using System.ComponentModel.DataAnnotations
+
+@inject IKeypairManager _keypairManager
+
+<div class="mb-3">
+    <label>Signatures <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" 
+                            title="For each signer, provide a signature of the transaction hash. <span class='font-monospace'>pact sign</span> is one way to obtain a signature."></span></label>
+    
+    @{
+        if (!Transaction.Command.Signers.Any())
+        {
+            <p><small>No signers have been added yet.</small></p>
+        }
+        int i = 0;
+        foreach (var signer in Transaction.Command.Signers)
+        {
+            var signerIndex = i++;
+
+            if (Transaction.Signatures == null || signerIndex >= Transaction.Signatures.Length)
+                continue;
+
+            bool signatureHasKeypair = signerIndex <= keypairAvailable.Length && keypairAvailable[signerIndex];
+            bool signatureLockedWithKeypair = signerIndex <= SigningKeypairs.Length && SigningKeypairs[signerIndex] != null;
+            
+            <div class="input-group">
+                <input type="text" class="form-control" readonly=@signatureLockedWithKeypair @bind="Transaction.Signatures[signerIndex].Signature" 
+                       placeholder="@(signatureLockedWithKeypair ? $"Automatically signed by {signer.PubKey}" : $"Enter signature from {signer.PubKey}")"/>
+                @{
+                    if (signatureHasKeypair)
+                    {
+                        <button class="btn @(signatureLockedWithKeypair ? "btn-primary" : "btn-outline-primary") btn-sm" type="button"
+                                @onclick="@(() => ToggleAttached(signer))"><span class="oi oi-lock-locked" aria-hidden="true"></span></button>
+                    }
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Required]
+    [Parameter]
+    public PactCommand Transaction { get; set; }
+  
+    [Parameter]
+    public EventCallback SignaturesChanged { get; set; }
+    
+    async Task SignalUpdate() => SignaturesChanged.InvokeAsync();
+
+    [Parameter]
+    public PactKeypair[] SigningKeypairs { get; set; } = new PactKeypair[0];
+    
+    [Parameter]
+    public EventCallback<PactKeypair[]> SigningKeypairsChanged { get; set; }
+    
+    bool[] keypairAvailable = new bool[0];
+
+    List<PactKeypair> keypairs;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+        
+        keypairs = (await _keypairManager.GetKeypairsAsync()).ToList();
+        await SynchronizeNumberAsync();
+    }
+
+    public async Task ToggleAttached(PactSigner signer)
+    {
+        var index = Transaction.Command.Signers.IndexOf(signer);
+
+        if (SigningKeypairs[index] != null)
+        {
+            SigningKeypairs[index] = null;
+        }
+        else if (keypairAvailable[index])
+        {
+            await Task.Run(delegate
+            {
+                SigningKeypairs[index] = keypairs.FirstOrDefault(keypair => keypair.PublicKey.ToHexString().Equals(signer.PubKey, StringComparison.InvariantCultureIgnoreCase));
+            });
+        }
+
+        await SignalUpdate();
+        await SynchronizeNumberAsync();
+    }
+
+    public async Task SynchronizeNumberAsync()
+    {
+        if (Transaction.Command.Signers.Count == Transaction.Signatures.Length)
+            return;
+    
+        var newSigs = new PactSignature[Transaction.Command.Signers.Count];
+        var newKeypairs = new PactKeypair[newSigs.Length];
+        var newKeypairAvailable = new bool[newSigs.Length];
+        
+        for (int i = 0; i < newSigs.Length; i++)
+        {
+            newSigs[i] = new PactSignature();
+            newKeypairs[i] = null;
+            newKeypairAvailable[i] = false;
+        }
+        
+        for (int i = 0; i < Math.Min(newSigs.Length, Transaction.Signatures.Length); i++)
+        {
+            newSigs[i] = Transaction.Signatures[i];
+            newKeypairs[i] = SigningKeypairs[i];
+        }
+
+        await Task.Run(delegate
+        {
+            for (int i = 0; i < newSigs.Length; i++)
+            {
+                newKeypairAvailable[i] = keypairs.Any(keypair => keypair.PublicKey.ToHexString().Equals(Transaction.Command.Signers[i].PubKey, StringComparison.InvariantCultureIgnoreCase));
+            }
+        });
+
+        Transaction.Signatures = newSigs;
+        SigningKeypairs = newKeypairs;
+        keypairAvailable = newKeypairAvailable;
+
+        await SigningKeypairsChanged.InvokeAsync(SigningKeypairs);
+        StateHasChanged();
+    }
+
+}

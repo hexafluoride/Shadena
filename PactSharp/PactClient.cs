@@ -36,8 +36,6 @@ public class PactClient
     {
         this._http = http;
         this._settingsService = settingsService;
-        
-        RecognizedChains = Enumerable.Range(0, 20).Select(i => i.ToString()).ToList();
     }
 
     public async Task Initialize()
@@ -67,6 +65,16 @@ public class PactClient
                 break;
             default:
                 throw new InvalidOperationException();
+        }
+
+        switch (ServerType)
+        {
+            case ServerType.Chainweb:
+                RecognizedChains = Enumerable.Range(0, 20).Select(i => i.ToString()).ToList();
+                break;
+            case ServerType.LocalPact:
+                RecognizedChains = new List<string>() {"0"};
+                break;
         }
     }
 

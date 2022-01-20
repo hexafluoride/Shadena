@@ -12,6 +12,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddScoped<IAccountsManager, AccountsManager>();
+builder.Services.AddScoped<IKeypairManager, SessionStorageKeypairManager>();
 builder.Services.AddScoped<ISettingsService, SessionStorageSettingsManager>();
 builder.Services.AddScoped<ICacheService, SessionStorageCacheService>();
 builder.Services.AddScoped<PactClient>(sp => new PactClient(new HttpClient(), sp.GetService<ISettingsService>()));

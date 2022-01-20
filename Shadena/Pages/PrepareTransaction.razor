@@ -99,21 +99,7 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label>Signatures <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" 
-                                            title="For each signer, provide a signature of the transaction hash. <span class='font-monospace'>pact sign</span> is one way to obtain a signature."></span></label>
-                    
-                    @{
-                        if (!cmdModel.Command.Signers.Any())
-                        {
-                            <p><small>No signers have been added yet.</small></p>
-                        }
-                        int i = 0;
-                        foreach (var signer in cmdModel.Command.Signers)
-                        {
-                            var signerIndex = i++;
-                            <InputText class="form-control" @bind-Value="cmdModel.Signatures[signerIndex].Signature" placeholder="@($"Signature from {signer.PubKey}")"/>
-                        }
-                    }
+                    <SignaturesControl Transaction="cmdModel" SignaturesChanged="@(async () => await Synchronize())" @bind-SigningKeypairs="signingKeypairs" />
                 </div>
                 
                 <div class="mb-3">
@@ -181,6 +167,8 @@
     string resultsText = "Execution result will appear here.";
     Timer timer;
 
+    PactKeypair[] signingKeypairs;
+
     JsonSerializerOptions humanReadableSerializationOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -199,19 +187,18 @@
 
         timer = new System.Timers.Timer();
         timer.Interval = 1000;
-        timer.Elapsed += async (s, e) => { await CheckForNewCode();}
-        ;
+        timer.Elapsed += async (s, e) => { await CheckForNewCode(); };
         timer.Enabled = true;
     }
 
-    private void FieldChanged(object? sender, FieldChangedEventArgs e)
+    private async void FieldChanged(object? sender, FieldChangedEventArgs e)
     {
-        Synchronize();
+        await Synchronize();
     }
 
     private async Task CheckForNewCode()
     {
-        var editorCode = await JS.InvokeAsync<string>("window.editorContext.editor.getValue");
+        var editorCode = await JS.InvokeAsync<string>("window.getEditorCode");
 
         if (cmdModel.Command.Payload.Exec.Code != editorCode)
         {
@@ -221,26 +208,37 @@
         }
     }
 
-    private void SynchronizeSignatures()
-    {
-        if (cmdModel.Command.Signers.Count == cmdModel.Signatures.Length)
-            return;
-        
-        var newSigs = new PactSignature[cmdModel.Command.Signers.Count];
-
-        for (int i = 0; i < newSigs.Length; i++)
-            newSigs[i] = new PactSignature();
-
-        for (int i = 0; i < Math.Min(newSigs.Length, cmdModel.Signatures.Length); i++)
-            newSigs[i] = cmdModel.Signatures[i];
-
-        cmdModel.Signatures = newSigs;
-    }
-
     private async Task Synchronize()
     {
-        SynchronizeSignatures();
-        cmdModel.UpdateHash();
+        await Task.Run(cmdModel.UpdateHash);
+        await Task.Run(StateHasChanged);
+    }
+
+    private async Task ApplySignatures()
+    {
+        await Task.Run(delegate
+        {
+            for (int i = 0; i < signingKeypairs.Length; i++)
+            {
+                var keypair = signingKeypairs[i];
+                if (keypair == null)
+                    continue;
+
+                cmdModel.Signatures[i].Signature = keypair.Sign(cmdModel).ToHexString();
+            }
+        });
+    }
+
+    private void RemoveAppliedSignatures()
+    {
+        for (int i = 0; i < signingKeypairs.Length; i++)
+        {
+            var keypair = signingKeypairs[i];
+            if (keypair == null)
+                continue;
+
+            cmdModel.Signatures[i].Signature = "";
+        }
     }
 
     protected async Task SendTransaction()
@@ -249,14 +247,15 @@
         StateHasChanged();
 
         await Synchronize();
+        await ApplySignatures();
         var resp = await _pactClient.SendTransactionAsync(cmdModel);
-
+        
+        RemoveAppliedSignatures();
         resultsText = resp;
         StateHasChanged();
 
         inputEnabled = true;
         StateHasChanged();
-        
     }
 
     protected async Task PreviewTransaction()
@@ -264,7 +263,8 @@
         inputEnabled = false;
         StateHasChanged();
 
-        Synchronize();
+        await Synchronize();
+        await ApplySignatures();
         
         var resp = await _pactClient.ExecuteLocalAsync(cmdModel);
 
@@ -287,6 +287,7 @@
                 resultsText = JsonSerializer.Serialize(resp.Result.Data, humanReadableSerializationOptions);
             }
         }
+        RemoveAppliedSignatures();
         StateHasChanged();
 
         inputEnabled = true;

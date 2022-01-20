@@ -1,0 +1,193 @@
+@page "/Keypairs"
+@using System.ComponentModel.DataAnnotations
+@using Chaos.NaCl
+@using Microsoft.AspNetCore.WebUtilities
+@using PactSharp
+@using PactSharp.Types
+
+@implements IDisposable
+
+@inject NavigationManager navigationManager
+@inject IKeypairManager keypairManager
+
+<div class="container">
+    <div class="alert alert-warning" role="alert">
+        Shadena never stores your private keys anywhere other than your browser's local storage, but this is not 
+        a very safe place either. Avoid importing high-value or personal keypairs. Shadena supports signing transactions
+        externally, which is best practice. Only use this page if you fully grasp the security tradeoff you are making 
+        for convenience's sake.  
+    </div>
+
+    <h3>Manage keypairs</h3>
+    <hr/>
+    
+    <div class="row">
+        <div class="col">
+            <button class="btn btn-outline-info" type="button" @onclick="@GenerateKeypair"><span class="oi oi-key" aria-hidden="true"></span> Generate</button>
+        </div>
+        <div class="col">
+            <div class="input-group">
+                <input type="text" @bind="privateKeyInput" class="form-control" placeholder="32-byte private key as hex string"/>
+                <button class="btn btn-outline-primary" type="button" @onclick="@ImportKeypair"><span class="oi oi-plus" aria-hidden="true"></span> Import</button>
+            </div>
+        </div>
+    </div>
+    <hr/>
+    @* *@
+    @* <TableTemplate Items="keypairs"> *@
+    @*     <TableHeader> *@
+    @*         <th>Public key</th> *@
+    @*         <th>Actions</th> *@
+    @*     </TableHeader> *@
+    @*     <RowTemplate> *@
+    @*         <td>@context.PublicKey.ToHexString()</td> *@
+    @*         <td class="col-2"> *@
+    @*             <button class="btn btn-sm btn-danger" type="button" @onclick="@(e => RemoveKeypair(context))"> *@
+    @*                 <span class="oi oi-minus" aria-hidden="true"></span> Remove *@
+    @*             </button> *@
+    @*             <button class="btn btn-sm btn-outline-primary" type="button" @onclick="@(e => RemoveKeypair(context))"> *@
+    @*                 <span class="oi oi-minus" aria-hidden="true"></span> Remove *@
+    @*             </button> *@
+    @*         </td> *@
+    @*     </RowTemplate> *@
+    @* </TableTemplate> *@
+    <table class="table align-middle">
+        <thead>
+        <tr>
+            <th>Public key</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @{
+            int index = 0;
+            for (; index < keypairs.Count; index++)
+            {
+                var keypair = keypairs[index];
+                var id = $"keypair-{keypair.PublicKey.ToHexString()}";
+                var perm = index;
+
+                <tr>
+                    <td>@keypair.PublicKey.ToHexString()</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" type="button" @onclick="@(e => RemoveKeypair(keypair))">
+                            <span class="oi oi-minus" aria-hidden="true"></span> Remove
+                        </button>
+                        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@id-sign" aria-expanded="False" aria-controls="@id-sign">
+                            <span class="oi oi-check" aria-hidden="true"></span> Sign data
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@id-export" aria-expanded="False" aria-controls="@id-export">
+                            <span class="oi oi-minus" aria-hidden="true"></span> Export
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="12" class="hiddenRow">
+                        <div class="accordion-body collapse" id="@id-sign">
+                            <div class="container-fluid">
+                                <div class="row row-cols-auto align-content-center">
+                                    <div class="col">
+                                        <textarea class="form-control" placeholder="base64url-encoded data to sign..." 
+                                            @onchange="@(async e => { dataToSign[perm] = e.Value.ToString(); await UpdateSignature(perm); })"></textarea>
+                                    </div>
+                                    <div class="col">
+                                        <textarea class="form-control" placeholder="Signature" readonly="readonly" @bind="signatures[perm]"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-body collapse" id="@id-export">
+                            <p>Private key: <span class="font-monospace">@keypair.PrivateKey.ToHexString()</span></p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>
+@code {
+    string privateKeyInput;
+    private List<PactKeypair> keypairs = new List<PactKeypair>();
+
+    private string[] dataToSign = new string[0];
+    private string[] signatures = new string[0];
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshKeypairs();
+        navigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private async void HandleLocationChanged(object? sender, object e)
+    {
+        await RefreshKeypairs();
+    }
+
+    public async Task UpdateSignature(int index)
+    {
+        await Task.Run(delegate
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dataToSign[index]))
+                    signatures[index] = "";
+                else
+                {
+                    var data = Base64UrlTextEncoder.Decode(dataToSign[index]);
+                    signatures[index] = keypairs[index].Sign(data).ToHexString();
+                }
+            }
+            catch (Exception e)
+            {
+                signatures[index] = e.Message;
+            }
+            
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        navigationManager.LocationChanged -= HandleLocationChanged;
+    }
+
+    private async Task GenerateKeypair()
+    {        
+        byte[] randomBytes = new byte[32];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+
+        await keypairManager.AddKeypairAsync(randomBytes.ToHexString());
+        await RefreshKeypairs();
+    }
+
+    protected async Task RefreshKeypairs()
+    {
+        keypairs = (await keypairManager.GetKeypairsAsync()).ToList();
+        signatures = new string[keypairs.Count];
+        dataToSign = new string[keypairs.Count];
+    }
+
+    private async Task ImportKeypair()
+    {
+        try
+        {
+            await keypairManager.AddKeypairAsync(privateKeyInput);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
+        finally
+        {
+            privateKeyInput = "";
+            await RefreshKeypairs();
+        }
+    }
+
+    private async Task RemoveKeypair(PactKeypair keypair)
+    {
+        await keypairManager.RemoveKeypairAsync(keypair);
+        await RefreshKeypairs();
+    }
+}

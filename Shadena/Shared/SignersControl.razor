@@ -1,8 +1,17 @@
 @using Microsoft.AspNetCore.Components
+@using PactSharp
 @using PactSharp.Types
 
+@inject IKeypairManager _keypairManager
+
 <div class="input-group">
-    <input type="text" class="form-control" name="signer-pubkey" placeholder="Public key" @bind="newSignerName"/>
+    <input type="text" class="form-control" name="signer-pubkey" placeholder="Public key" @bind="newSignerName" list="pubkey-list" />
+    <datalist id="pubkey-list">
+        @foreach (var keypair in keypairs)
+        {
+            <option value="@keypair.PublicKey.ToHexString()">@keypair.PublicKey.ToHexString()</option>
+        }
+    </datalist>
     <button class="btn btn-sm btn-outline-primary" type="button" onclick="@AddSigner"><span class="oi oi-plus" aria-hidden="true"></span> Add signer</button>
 </div>
 <TableTemplate Items="@Signers" Context="signer" >
@@ -41,6 +50,8 @@
 @code {
     string newSignerName = "";
     string newCapabilityContents = "";
+
+    List<PactKeypair> keypairs { get; set; } = new();
     
     [Parameter]
     public List<PactSigner> Signers { get; set; }
@@ -48,8 +59,15 @@
     [Parameter]
     public EventCallback SignersChanged { get; set; }
 
-    async Task SignalUpdate() => SignersChanged.InvokeAsync();
-    
+    async Task SignalUpdate() => await SignersChanged.InvokeAsync();
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+        keypairs = (await _keypairManager.GetKeypairsAsync()).ToList();
+        StateHasChanged();
+    }
+
     async Task AddSigner()
     {
         if (string.IsNullOrWhiteSpace(newSignerName))

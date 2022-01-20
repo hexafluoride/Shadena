@@ -57,6 +57,13 @@
             window.localStorage.setItem("lastText", lastText);
         }
         
+        window.getEditorCode = function() {
+            if (!window.editorContext || !window.editorContext.editor)
+                return "";
+            
+            return window.editorContext.editor.getValue();
+        }
+        
         window.initializeEditor = async function() {
             const pactExample = await (await fetch('/example.pact')).text();
             

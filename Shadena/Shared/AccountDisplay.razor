@@ -41,22 +41,6 @@
                             }
                         </div>
                     </div>
-                    @* <table class="table table-sm"> *@
-                    @*     <thead> *@
-                    @*     <tr> *@
-                    @*         <th>Chain</th> *@
-                    @*         <th>Balance</th> *@
-                    @*     </tr></thead> *@
-                    @*     <tbody> *@
-                    @*     @foreach (var account in TokenAccounts[pair.Key]) *@
-                    @*     { *@
-                    @*         <tr> *@
-                    @*             <td>@account.Chain</td> *@
-                    @*             <td>@account.Balance</td> *@
-                    @*         </tr> *@
-                    @*     } *@
-                    @*     </tbody> *@
-                    @* </table> *@
                 </div>
             </td>
         </tr>
@@ -78,18 +62,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var accountsFiltered = Accounts;
-
-        TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
-        TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
+        AccountsChanged(null);
     }
 
     protected override async Task OnInitializedAsync()
     {
-        // var accountsFiltered = Accounts;
-        //
-        // TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
-        // TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
     }
 
     void AccountsChanged(ChangeEventArgs e)
