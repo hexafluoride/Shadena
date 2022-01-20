@@ -169,7 +169,7 @@
     string resultsText = "Execution result will appear here.";
     Timer timer;
 
-    PactKeypair[] signingKeypairs;
+    PactKeypair[] signingKeypairs = Array.Empty<PactKeypair>();
 
     JsonSerializerOptions humanReadableSerializationOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
