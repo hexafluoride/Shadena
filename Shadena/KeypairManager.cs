@@ -33,6 +33,10 @@ public class SessionStorageKeypairManager : IKeypairManager
     private async Task WriteKeypairs(IEnumerable<PactKeypair> keypairs)
     {
         var enumerated = keypairs.ToList();
+
+        if (_keypairs == null)
+            _keypairs = new List<PactKeypair>();
+        
         _keypairs.Clear();
         _keypairs.AddRange(enumerated);
         await LocalStorage.SetItemAsync(STORAGE_KEY, _keypairs.Select(k => k.PrivateKey.ToHexString()));
