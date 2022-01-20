@@ -1,0 +1,295 @@
+@page "/PrepareTransaction"
+@using System.Text.Json
+@using System.Timers
+@using Microsoft.AspNetCore.Components
+@using PactSharp
+@using PactSharp.Types
+
+@inject IAccountsManager _accountsManager
+@inject PactClient _pactClient
+@inject IJSRuntime JS
+
+<!-- Modal -->
+<div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="export-modal-label">Import and export</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-tabs" id="export-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="json-local-tab" data-bs-toggle="tab" data-bs-target="#export-json-local" type="button" role="tab" aria-controls="json-local" aria-selected="true">JSON for /local</button>
+            </li>
+            <li class="nav-item" role="presentation">   
+                <button class="nav-link" id="json-send-tab" data-bs-toggle="tab" data-bs-target="#export-json-send" type="button" role="tab" aria-controls="json-send" aria-selected="false">JSON for /send</button>
+            </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="yaml-tab" data-bs-toggle="tab" data-bs-target="#export-yaml" type="button" role="tab" aria-controls="export-yaml" aria-selected="false">YAML</button>
+          </li>
+        </ul>
+        <div class="tab-content" id="export-tab-content">
+            <div class="tab-pane fade show active" id="export-json-local" role="tabpanel" aria-labelledby="json-local-tab">
+                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForLocal">
+                
+                </textarea>
+            </div>
+            <div class="tab-pane fade" id="export-json-send" role="tabpanel" aria-labelledby="json-send-tab">
+                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForSend">
+                
+                </textarea>
+            </div>
+            <div class="tab-pane fade" id="export-yaml" role="tabpanel" aria-labelledby="yaml-tab">
+                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.YamlEncoded">
+                                
+                                </textarea>
+            </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+    <h3>Prepare transaction</h3>
+    <div class="row">
+        <div class="col-xl-8" id="code-outer">
+            
+            <div class="mb-3">
+                <div id="code-container" style="height:80vh; border:1px solid #cccccc;"></div>
+            </div>
+            
+            <div class="mb-3">
+                <h4>Signers</h4>
+                <SignersControl Signers="@cmdModel.Command.Signers" SignersChanged="@(() => FieldChanged(null, null))"></SignersControl>
+            </div>
+        </div>
+        <div class="col-xl-4 @(inputEnabled ? "" : "loadingQuick")">
+            <div class="mb-3">
+                <textarea class="form-control" style="font-family: monospace; min-height:25vh; background-color: #fefefe;" readonly="readonly" @bind="resultsText"></textarea>
+            </div>
+            
+            <EditForm EditContext="editContext">
+                <DataAnnotationsValidator/>
+                <ValidationSummary/>
+
+                <div class="mb-3">
+                            <button class="btn btn-primary" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
+                        
+                            <button class="btn btn-success" type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
+                  
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#export-modal">
+                                <span class="oi oi-document"></span> Import/Export
+                            </button>
+                
+                </div>
+                <div class="mb-3">
+                    <label>Transaction hash <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                                  title="Sign this value. Click to copy into clipboard."></span></label>
+                    <input class="form-control font-monospace" style="cursor:grab;" id="tx-hash" type="text" readonly="readonly" @bind="cmdModel.Hash" data-bs-toggle="tooltip" data-bs-placement="top" title="Copied!" data-bs-trigger="manual" 
+                           onclick="navigator.clipboard.writeText(document.getElementById('tx-hash').value); 
+                           bootstrap.Tooltip.getInstance(document.getElementById('tx-hash')).show();
+                           setTimeout(function () { bootstrap.Tooltip.getInstance(document.getElementById('tx-hash')).hide(); }, 1000);" />
+                </div>
+                
+                <div class="mb-3">
+                    <label>Signatures <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" 
+                                            title="For each signer, provide a signature of the transaction hash. <span class='font-monospace'>pact sign</span> is one way to obtain a signature."></span></label>
+                    
+                    @{
+                        if (!cmdModel.Command.Signers.Any())
+                        {
+                            <p><small>No signers have been added yet.</small></p>
+                        }
+                        int i = 0;
+                        foreach (var signer in cmdModel.Command.Signers)
+                        {
+                            var signerIndex = i++;
+                            <InputText class="form-control" @bind-Value="cmdModel.Signatures[signerIndex].Signature" placeholder="@($"Signature from {signer.PubKey}")"/>
+                        }
+                    }
+                </div>
+                
+                <div class="mb-3">
+                    <label>Sender</label>
+                    <InputText class="form-control" list="registered-accounts" @bind-Value="cmdModel.Command.Metadata.Sender"/>
+                    
+                    <datalist id="registered-accounts">
+                        @foreach (var account in accounts)
+                        {
+                            <option value="@account.Name" />
+                        }
+                    </datalist>
+                </div>
+                <div class="mb-3">
+                    <label>Chain</label>
+                    <InputSelect class="form-select" @bind-Value="cmdModel.Command.Metadata.ChainId">
+                        @foreach (var chain in _pactClient.RecognizedChains)
+                        {
+                            <option value="@chain">@chain</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col">
+                            <label>Gas limit</label>
+                            <InputNumber class="form-control" placeholder="1500" aria-label="Gas limit" @bind-Value="cmdModel.Command.Metadata.GasLimit"/>
+                        </div>
+                        <div class="col">
+                            <lable>Gas price</lable>
+                            <InputNumber class="form-control" placeholder="0.00001" aria-label="Gas price" @bind-Value="cmdModel.Command.Metadata.GasPrice"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col">
+                            <label>Time to live</label>
+                            <InputNumber class="form-control" placeholder="3600" aria-label="Time to live" @bind-Value="cmdModel.Command.Metadata.Ttl"/>
+                        </div>
+                        <div class="col">
+                            <lable>Creation time</lable>
+                            <InputNumber class="form-control" aria-label="Creation time" @bind-Value="cmdModel.Command.Metadata.CreationTime"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h4>Message data</h4>
+                    <TransactionDataControl Transaction="cmdModel.Command" DataChanged="Synchronize"/>
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected PactCommand cmdModel { get; set; }
+    EditContext editContext;
+
+    List<AccountIdentifier> accounts = new();
+
+    bool inputEnabled = true;
+    string resultsText = "Execution result will appear here.";
+    Timer timer;
+
+    JsonSerializerOptions humanReadableSerializationOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+    
+    protected override async Task OnInitializedAsync()
+    {
+        cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        editContext = new EditContext(cmdModel);
+        
+        editContext.OnFieldChanged += FieldChanged;
+        
+        accounts = (await _accountsManager.GetAccountsRegisteredAsync()).ToList();
+        await JS.InvokeVoidAsync("window.initializeEditor");
+        await JS.InvokeVoidAsync("window.initTooltips");
+
+        timer = new System.Timers.Timer();
+        timer.Interval = 1000;
+        timer.Elapsed += async (s, e) => { await CheckForNewCode();}
+        ;
+        timer.Enabled = true;
+    }
+
+    private void FieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        Synchronize();
+    }
+
+    private async Task CheckForNewCode()
+    {
+        var editorCode = await JS.InvokeAsync<string>("window.editorContext.editor.getValue");
+
+        if (cmdModel.Command.Payload.Exec.Code != editorCode)
+        {
+            cmdModel.Command.Payload.Exec.Code = editorCode;
+            await Synchronize();
+            StateHasChanged();
+        }
+    }
+
+    private void SynchronizeSignatures()
+    {
+        if (cmdModel.Command.Signers.Count == cmdModel.Signatures.Length)
+            return;
+        
+        var newSigs = new PactSignature[cmdModel.Command.Signers.Count];
+
+        for (int i = 0; i < newSigs.Length; i++)
+            newSigs[i] = new PactSignature();
+
+        for (int i = 0; i < Math.Min(newSigs.Length, cmdModel.Signatures.Length); i++)
+            newSigs[i] = cmdModel.Signatures[i];
+
+        cmdModel.Signatures = newSigs;
+    }
+
+    private async Task Synchronize()
+    {
+        SynchronizeSignatures();
+        cmdModel.UpdateHash();
+    }
+
+    protected async Task SendTransaction()
+    {
+        inputEnabled = false;
+        StateHasChanged();
+
+        await Synchronize();
+        var resp = await _pactClient.SendTransactionAsync(cmdModel);
+
+        resultsText = resp;
+        StateHasChanged();
+
+        inputEnabled = true;
+        StateHasChanged();
+        
+    }
+
+    protected async Task PreviewTransaction()
+    {
+        inputEnabled = false;
+        StateHasChanged();
+
+        Synchronize();
+        
+        var resp = await _pactClient.ExecuteLocalAsync(cmdModel);
+
+        if (resp == null)
+        {
+            resultsText = "Execution returned null.";
+        }
+        else
+        {
+            if (resp.Result.Status != "success")
+            {
+                resultsText = $"Execution was unsuccessful.\n" +
+                              resp.Result.Error.Message + "\n" +
+                              resp.Result.Error.Info + "\n" +
+                              string.Join('\n', resp.Result.Error.CallStack) + "\n" +
+                              resp.Result.Error.Type;
+            }
+            else
+            {
+                resultsText = JsonSerializer.Serialize(resp.Result.Data, humanReadableSerializationOptions);
+            }
+        }
+        StateHasChanged();
+
+        inputEnabled = true;
+        StateHasChanged();
+    }
+}

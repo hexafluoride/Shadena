@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shadena", "Shadena\Shadena.csproj", "{C0DA23E8-23AD-4819-960D-9667E82E7309}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PactSharp", "PactSharp\PactSharp.csproj", "{1B167176-122C-493D-A160-34C7D0454AF0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0DA23E8-23AD-4819-960D-9667E82E7309}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0DA23E8-23AD-4819-960D-9667E82E7309}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0DA23E8-23AD-4819-960D-9667E82E7309}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0DA23E8-23AD-4819-960D-9667E82E7309}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B167176-122C-493D-A160-34C7D0454AF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B167176-122C-493D-A160-34C7D0454AF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B167176-122C-493D-A160-34C7D0454AF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B167176-122C-493D-A160-34C7D0454AF0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
