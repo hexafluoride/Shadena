@@ -1,6 +1,5 @@
 @page "/Keypairs"
-@using System.ComponentModel.DataAnnotations
-@using Chaos.NaCl
+
 @using Microsoft.AspNetCore.WebUtilities
 @using PactSharp
 @using PactSharp.Types
@@ -33,24 +32,6 @@
         </div>
     </div>
     <hr/>
-    @* *@
-    @* <TableTemplate Items="keypairs"> *@
-    @*     <TableHeader> *@
-    @*         <th>Public key</th> *@
-    @*         <th>Actions</th> *@
-    @*     </TableHeader> *@
-    @*     <RowTemplate> *@
-    @*         <td>@context.PublicKey.ToHexString()</td> *@
-    @*         <td class="col-2"> *@
-    @*             <button class="btn btn-sm btn-danger" type="button" @onclick="@(e => RemoveKeypair(context))"> *@
-    @*                 <span class="oi oi-minus" aria-hidden="true"></span> Remove *@
-    @*             </button> *@
-    @*             <button class="btn btn-sm btn-outline-primary" type="button" @onclick="@(e => RemoveKeypair(context))"> *@
-    @*                 <span class="oi oi-minus" aria-hidden="true"></span> Remove *@
-    @*             </button> *@
-    @*         </td> *@
-    @*     </RowTemplate> *@
-    @* </TableTemplate> *@
     <table class="table align-middle">
         <thead>
         <tr>

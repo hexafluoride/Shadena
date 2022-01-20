@@ -10,7 +10,7 @@ Kadena wallet for developers, written in Blazor WebAssembly. A better name is pr
 - [ ] Token transfers (cross-chain)
 - [x] Transaction execution preview
 - [x] Transaction submission
-- [ ] Transaction signing with keypair
+- [x] Transaction signing with keypair
 - [x] External signatures
 - [ ] Transaction import (yaml, json, on-chain tx)
 - [x] Transaction export (yaml, json)
