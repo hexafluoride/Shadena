@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -18,11 +19,7 @@ public class PactCommand
     public PactCmd Command
     {
         get => _command;
-        set
-        {
-            _command = value;
-            CommandEncoded = JsonSerializer.Serialize(_command, PactClient.PactJsonOptions);
-        }
+        set { _command = value; }
     }
     
     [JsonIgnore]
@@ -34,6 +31,11 @@ public class PactCommand
     public string YamlEncoded { get; set; }
 
     private PactCmd _command;
+
+    public void SetCommand(string encodedJson)
+    {
+        Command = JsonSerializer.Deserialize<PactCmd>(encodedJson, PactClient.PactJsonOptions);
+    }
 
     public void UpdateHash()
     {

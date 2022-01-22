@@ -1,0 +1,46 @@
+@page "/TransactionDetails"
+@using PactSharp
+@using Microsoft.AspNetCore.Components
+
+@inject PactClient _pactClient
+
+<div class="container">
+    <h3>View transaction</h3>
+    <div class="row">
+        <div class="col-4">
+            <div class="mb-3">
+                <label>Chain</label>
+                <select class="form-select" @bind="@_chainId">
+                    @foreach (var chain in _pactClient.RecognizedChains)
+                    {
+                        <option value="@chain">@chain</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label>Request key</label>
+                <input type="text" class="form-control" placeholder="" aria-label="Request key" @bind="@_requestKey"/>
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-success" type="button" @onclick="Lookup"><span class="oi oi-magnifying-glass" aria-hidden="true"></span> Query</button>
+            </div>
+        </div>
+        <div class="col-8">
+            <TransactionResultView RequestKey="@_submittedRequestKey" ChainId="@_submittedChainId" ReferenceType="TransactionResultView.TransactionReference.RequestKey"></TransactionResultView>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _submittedRequestKey;
+    private string _submittedChainId;
+    
+    private string _requestKey;
+    private string _chainId;
+
+    private void Lookup()
+    {
+        _submittedRequestKey = _requestKey;
+        _submittedChainId = _chainId;
+    }
+}

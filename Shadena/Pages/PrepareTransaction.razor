@@ -1,15 +1,28 @@
 @page "/"
 @page "/PrepareTransaction"
+@page "/PrepareTransaction/{chainId}/{requestKey?}"
 
 @using System.Text.Json
 @using System.Timers
 @using Microsoft.AspNetCore.Components
 @using PactSharp
+@using PactSharp.Services
 @using PactSharp.Types
 
+@inject IChainwebQueryService _chainwebQueryService
 @inject IAccountsManager _accountsManager
 @inject PactClient _pactClient
 @inject IJSRuntime JS
+
+<div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-backdrop="false" tabindex="-2" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+    <div class="offcanvas-header">
+        <h5 id="offcanvasRightLabel">Transaction result</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <TransactionResultView Command="@_sentCommand" ReferenceType="TransactionResultView.TransactionReference.SentCommand"></TransactionResultView>
+    </div>
+</div>
 
 <!-- Modal -->
 <div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label" aria-hidden="true">
@@ -82,14 +95,16 @@
                 <ValidationSummary/>
 
                 <div class="mb-3">
-                            <button class="btn btn-primary" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
-                        
-                            <button class="btn btn-success" type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
-                  
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#export-modal">
-                                <span class="oi oi-document"></span> Import/Export
-                            </button>
+                    <button class="btn btn-primary" type="button" @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
                 
+                    <button class="btn btn-success" type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
+          
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#export-modal">
+                        <span class="oi oi-document"></span> Import/Export
+                    </button>
+                
+                    <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">Show transaction result</button>
+
                 </div>
                 <div class="mb-3">
                     <label>Transaction hash <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" 
@@ -160,6 +175,12 @@
 </div>
 
 @code {
+    [Parameter]
+    public string requestKey { get; set; }
+    
+    [Parameter]
+    public string chainId { get; set; }
+    
     protected PactCommand cmdModel { get; set; }
     EditContext editContext;
 
@@ -175,22 +196,57 @@
     {
         WriteIndented = true
     };
-    
+
+    PactCommand _sentCommand;
+
+    bool _txImported = false;
+    bool _editorInitialized = false;
+
     protected override async Task OnInitializedAsync()
     {
         cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
-        editContext = new EditContext(cmdModel);
         
-        editContext.OnFieldChanged += FieldChanged;
+        if (!_editorInitialized)
+        {
+            editContext = new EditContext(cmdModel);
+            editContext.OnFieldChanged += FieldChanged;
+            
+            await JS.InvokeVoidAsync("window.initializeEditor", _txImported ? cmdModel?.Command?.Payload?.Exec?.Code : null);
+            await JS.InvokeVoidAsync("window.initTooltips");
+
+            _editorInitialized = true;
+        }
+        
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(requestKey) && !string.IsNullOrWhiteSpace(chainId))
+        {
+            _txImported = true;
+            cmdModel = await _chainwebQueryService.FetchTransactionAsync(chainId, requestKey);
+
+            if (_editorInitialized)
+            {
+                await JS.InvokeVoidAsync("window.setEditorCode", cmdModel?.Command?.Payload?.Exec?.Code);
+            }
+        }
+        else
+        {
+            _txImported = false;
+            cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        }
         
         accounts = (await _accountsManager.GetAccountsRegisteredAsync()).ToList();
-        await JS.InvokeVoidAsync("window.initializeEditor");
-        await JS.InvokeVoidAsync("window.initTooltips");
 
-        timer = new System.Timers.Timer();
-        timer.Interval = 1000;
-        timer.Elapsed += async (s, e) => { await CheckForNewCode(); };
-        timer.Enabled = true;
+        if (timer == null)
+        {
+            timer = new System.Timers.Timer();
+            timer.Interval = 1000;
+            timer.Elapsed += async (s, e) => { await CheckForNewCode(); };
+            timer.Enabled = true;
+        }
     }
 
     private async void FieldChanged(object? sender, FieldChangedEventArgs e)
@@ -250,6 +306,8 @@
 
         await Synchronize();
         await ApplySignatures();
+        _sentCommand = JsonSerializer.Deserialize<PactCommand>(cmdModel.JsonEncodedForLocal, PactClient.PactJsonOptions);
+        _sentCommand.SetCommand(_sentCommand.CommandEncoded);
         var resp = await _pactClient.SendTransactionAsync(cmdModel);
         
         RemoveAppliedSignatures();

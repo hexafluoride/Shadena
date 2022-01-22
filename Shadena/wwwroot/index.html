@@ -64,7 +64,14 @@
             return window.editorContext.editor.getValue();
         };
         
-        window.initializeEditor = async function() {
+        window.setEditorCode = function(code) {
+            if (!window.editorContext || !window.editorContext.editor)
+                return;
+
+            window.editorContext.editor.setValue(code);
+        }
+        
+        window.initializeEditor = async function(code) {
             const pactExample = await (await fetch('/example.pact')).text();
             
             require.config({ paths: { vs: 'dev/vs' } });
@@ -75,7 +82,7 @@
                 
                 monaco.languages.setMonarchTokensProvider('pact', window.pactLanguageSpec);
                 
-                const startText = window.localStorage.getItem("lastText") || pactExample;
+                const startText = code || window.localStorage.getItem("lastText") || pactExample;
                 
                 var editor = monaco.editor.create(document.getElementById('code-container'), {
                     value: startText,

@@ -10,23 +10,25 @@
                             title="For each signer, provide a signature of the transaction hash. <span class='font-monospace'>pact sign</span> is one way to obtain a signature."></span></label>
     
     @{
-        if (!Transaction.Command.Signers.Any())
+        var signersCopied = Transaction?.Command?.Signers?.ToArray() ?? Array.Empty<PactSigner>();
+        var signaturesCopied = Transaction?.Signatures?.ToArray() ?? Array.Empty<PactSignature>();
+        if (!signersCopied.Any())
         {
             <p><small>No signers have been added yet.</small></p>
         }
         int i = 0;
-        foreach (var signer in Transaction.Command.Signers)
+        foreach (var signer in signersCopied)
         {
             var signerIndex = i++;
 
-            if (Transaction.Signatures == null || signerIndex >= Transaction.Signatures.Length)
+            if (Transaction.Signatures == null || signerIndex >= signaturesCopied.Length)
                 continue;
 
-            bool signatureHasKeypair = signerIndex <= keypairAvailable.Length && keypairAvailable[signerIndex];
-            bool signatureLockedWithKeypair = signerIndex <= SigningKeypairs.Length && SigningKeypairs[signerIndex] != null;
+            bool signatureHasKeypair = signerIndex < keypairAvailable.Length && keypairAvailable[signerIndex];
+            bool signatureLockedWithKeypair = signerIndex < SigningKeypairs.Length && SigningKeypairs[signerIndex] != null;
             
             <div class="input-group">
-                <input type="text" class="form-control" readonly=@signatureLockedWithKeypair @bind="Transaction.Signatures[signerIndex].Signature" 
+                <input type="text" class="form-control" readonly=@signatureLockedWithKeypair @bind="signaturesCopied[signerIndex].Signature" 
                        placeholder="@(signatureLockedWithKeypair ? $"Automatically signed by {signer.PubKey}" : $"Enter signature from {signer.PubKey}")"/>
                 @{
                     if (signatureHasKeypair)
@@ -48,7 +50,7 @@
     [Parameter]
     public EventCallback SignaturesChanged { get; set; }
     
-    async Task SignalUpdate() => SignaturesChanged.InvokeAsync();
+    async Task SignalUpdate() => await SignaturesChanged.InvokeAsync();
 
     [Parameter]
     public PactKeypair[] SigningKeypairs { get; set; } = new PactKeypair[0];

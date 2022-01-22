@@ -36,6 +36,7 @@ public class PactClient
     {
         this._http = http;
         this._settingsService = settingsService;
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json;blockheader-encoding=object,application/json");
     }
 
     public async Task Initialize()
@@ -83,7 +84,7 @@ public class PactClient
         switch (ServerType)
         {
             case ServerType.Chainweb:
-                return $"https://{ApiHost}/chainweb/0.0/{NetworkId}/chain/{chain}/pact{endpoint}";
+                return $"https://{ApiHost}/chainweb/0.0/{NetworkId}/chain/{chain}{endpoint}";
             case ServerType.LocalPact:
                 return $"http://{ApiHost}{endpoint}";
             default:
@@ -97,7 +98,7 @@ public class PactClient
 
         var req = new {cmds = new[] {command}};
         Console.WriteLine($"Encoded: {JsonSerializer.Serialize(req, PactJsonOptions)}");
-        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/api/v1/send", chain), req, PactJsonOptions);
+        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/pact/api/v1/send", chain), req, PactJsonOptions);
 
         var respString = await resp.Content.ReadAsStringAsync();
         
@@ -118,7 +119,7 @@ public class PactClient
         var chain = command.Command.Metadata.ChainId;
 
         Console.WriteLine($"Encoded: {JsonSerializer.Serialize(command, PactJsonOptions)}");
-        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/api/v1/local", chain), command, PactJsonOptions);
+        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/pact/api/v1/local", chain), command, PactJsonOptions);
 
         var respString = await resp.Content.ReadAsStringAsync();
         
@@ -138,12 +139,82 @@ public class PactClient
         }
     }
 
-    public PactCommand GenerateAccountDetailQuery(string chain, string module, string account)
+    public async Task<PactCommandResponse> PollRequestAsync(string chain, string requestKey)
     {
-        var code = $"({module}.details (read-msg 'account))";
-        var cmd = GenerateExecCommand(chain, code, new {account});
+        var resp = await PollRequestsAsync(chain, new[] {requestKey});
 
-        return BuildCommand(cmd);
+        if (resp == null || !resp.ContainsKey(requestKey))
+            return null;
+
+        return resp[requestKey];
+    }
+    
+    public async Task<Dictionary<string, PactCommandResponse>> PollRequestsAsync(string chain, string[] keys)
+    {
+        var req = new { requestKeys = keys };
+        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/pact/api/v1/poll", chain), req, PactJsonOptions);
+
+        var respString = await resp.Content.ReadAsStringAsync();
+        var respDict = new Dictionary<string, PactCommandResponse>();
+        
+        var respObj = JsonNode.Parse(respString)?.AsObject();
+
+        if (respObj?.Any() == true)
+        {
+            foreach (var (key, value) in respObj)
+            {
+                try
+                {
+                    respDict[key] = value.Deserialize<PactCommandResponse>(PactJsonOptions);
+                }
+                catch (Exception e)
+                {
+                    throw; // TODO: Error handling
+                }
+            }
+        }
+
+        foreach (var key in keys)
+        {
+            Console.WriteLine($"{key} found: {respDict.ContainsKey(key)}");
+            if (!respDict.ContainsKey(key))
+                respDict[key] = null;
+        }
+
+        return respDict;
+    }
+
+    public async Task<ChainwebBlockHeader> GetBlockHeaderAsync(string chain, string blockHash)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, GetApiUrl($"/header/{blockHash}?t=json", chain));
+        req.Headers.Remove("Accept");
+        req.Headers.TryAddWithoutValidation("Accept", "application/json;blockheader-encoding=object");
+        var resp = await _http.SendAsync(req);
+        //var resp = await _http.GetAsync(GetApiUrl($"/header/{blockHash}?t=json", chain));
+
+        try
+        {
+            return JsonSerializer.Deserialize<ChainwebBlockHeader>(await resp.Content.ReadAsStreamAsync(), PactJsonOptions);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Exception: {e}");
+            return null;
+        }
+    }
+
+    public async Task<ChainwebBlockPayload> GetBlockPayloadAsync(string chain, string payloadHash)
+    {
+        var resp = await _http.GetAsync(GetApiUrl($"/payload/{payloadHash}/outputs", chain));
+
+        try
+        {
+            return JsonSerializer.Deserialize<ChainwebBlockPayload>(await resp.Content.ReadAsStreamAsync(), PactJsonOptions);
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 
     public PactCmd GenerateExecCommand(string chain, string code, object data = null)
@@ -167,11 +238,11 @@ public class PactClient
         return cmd;
     }
 
-    public PactMetadata GenerateMetadata(string chain, int gasLimit = -1, decimal gasPrice = -1m,
+    public ChainwebMetadata GenerateMetadata(string chain, int gasLimit = -1, decimal gasPrice = -1m,
         string sender = "", int ttl = 3600,
         DateTime creationTime = default)
     {
-        return new PactMetadata()
+        return new ChainwebMetadata()
         {
             ChainId = chain,
             CreationTime = (long) ((creationTime != default ? creationTime : DateTime.UtcNow) - DateTime.UnixEpoch).TotalSeconds,
@@ -190,8 +261,7 @@ public class PactClient
 
         ret.Command = cmd;
         ret.Signatures = signatures ?? Array.Empty<PactSignature>();
-        ret.CommandEncoded = cmdEscaped;
-        ret.Hash = cmdEscaped.HashEncoded();
+        ret.UpdateHash();
 
         return ret;
     }

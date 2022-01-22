@@ -9,7 +9,7 @@ public class PactCmd
 {
     public string Nonce { get; set; }
 
-    [JsonPropertyName("meta")] public PactMetadata Metadata { get; set; }
+    [JsonPropertyName("meta")] public ChainwebMetadata Metadata { get; set; }
 
     public List<PactSigner> Signers { get; set; }
     public string NetworkId { get; set; }

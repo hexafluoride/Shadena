@@ -1,15 +1,16 @@
-using YamlDotNet.Core;
-using YamlDotNet.Serialization;
+using System.Text.Json.Serialization;
 
 namespace PactSharp.Types;
 
 public class PactMetadata
 {
-    [YamlMember(ScalarStyle = ScalarStyle.DoubleQuoted)]
-    public string ChainId { get; set; }
-    public string Sender { get; set; }
-    public int GasLimit { get; set; }
-    public decimal GasPrice { get; set; }
-    public double Ttl { get; set; }
-    public long CreationTime { get; set; }
+    public long BlockTime { get; set; }
+    public int BlockHeight { get; set; }
+    
+    public string BlockHash { get; set; }
+    [JsonPropertyName("prevBlockHash")]
+    public string PreviousBlockHash { get; set; }
+    
+    [JsonPropertyName("publicMeta")]
+    public ChainwebMetadata PublicMetadata { get; set; }
 }

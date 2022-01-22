@@ -1,0 +1,193 @@
+@using PactSharp.Types
+@using PactSharp.Services
+@using PactSharp
+@using System.Timers
+@using System.ComponentModel.DataAnnotations
+
+@inject PactClient _pactClient
+@inject IChainwebQueryService _chainwebQueryService
+@inject NavigationManager _navigationManager
+
+<div class="container-fluid @(_loading ? "loading" : "")">
+    <div class="row row-cols-auto align-content-center">
+        <div class="col">
+            <small>REQUEST KEY</small>
+            <pre>@_targetRequestKey</pre>
+        </div>
+        @if (_commandResponse != null)
+        {
+            <div class="col">
+                <small>STATUS</small>
+                <pre>@_commandResponse.Result.Status</pre>
+            </div>
+            <div class="col">
+                <small>GAS CONSUMED</small>
+                <pre>@_commandResponse.Gas</pre>
+            </div>
+
+            @if (_commandResponse.Metadata != null)
+            {
+                <div class="col">
+                    <small>BLOCK TIME</small>
+                    <pre>@DateTime.UnixEpoch.AddMilliseconds(_commandResponse.Metadata.BlockTime / 1000d)</pre>
+                </div>
+                <div class="col">
+                    <small>BLOCK HASH</small>
+                    <pre>@_commandResponse.Metadata.BlockHash</pre>
+                </div>
+
+                @if (_command?.Command?.Metadata != null)
+                {
+                    var publicMeta = _command.Command.Metadata;
+
+                    <div class="col">
+                        <small>SENDER</small>
+                        <pre>@publicMeta.Sender</pre>
+                    </div>
+                    <div class="col">
+                        <small>CHAIN</small>
+                        <pre>@publicMeta.ChainId</pre>
+                    </div>
+                    <div class="col">
+                        <small>GAS LIMIT</small>
+                        <pre>@publicMeta.GasLimit</pre>
+                    </div>
+                    <div class="col">
+                        <small>GAS PRICE</small>
+                        <pre>@publicMeta.GasPrice</pre>
+                    </div>
+                    <div class="col">
+                        <small>TIME TO LIVE</small>
+                        <pre>@(publicMeta.Ttl)s</pre>
+                    </div>
+                }
+            }
+        }
+    </div>
+    @if (_commandResponse?.Result != null)
+    {
+        <div class="row">
+            <div class="col">
+                <small>RESULT</small>
+                <textarea class="form-control" readonly>@(_commandResponse.Result.Data)</textarea>
+            </div>
+        </div>
+    }
+    @if (_command?.Command?.Payload?.Exec != null)
+    {
+        <div class="row">
+            <div class="col">
+                <small>CODE</small>
+                <textarea class="form-control" readonly>@(_command.Command.Payload.Exec.Code)</textarea>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>DATA</small>
+                <textarea class="form-control" readonly>@(_command.Command.Payload.Exec.Data.ToJsonString())</textarea>
+            </div>
+        </div>
+    }
+    @if (ReferenceType == TransactionReference.RequestKey && _command != null)
+    {
+        <div class="row">
+            <div class="col">
+                <button class="btn btn-primary" type="button" @onclick="Import"><span class="oi oi-account-login" aria-hidden="true"></span> Import into editor</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+
+    public enum TransactionReference
+    {
+        SentCommand,
+        PollResponse,
+        RequestKey
+    }
+    
+    [Parameter]
+    public PactCommandResponse Result { get; set; }
+    
+    [Parameter]
+    public PactCommand Command { get; set; } 
+    
+    [Parameter]
+    public string RequestKey { get; set; }
+    
+    [Parameter]
+    public string ChainId { get; set; }
+    
+    [Required]
+    [Parameter]
+    public TransactionReference ReferenceType { get; set; }
+
+    private PactCommand _command;
+    private PactCommandResponse _commandResponse;
+    private string _targetRequestKey;
+    private string _targetChain;
+
+    private Timer _timer;
+    private bool _loading = false;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        switch (ReferenceType)
+        {
+            case TransactionReference.PollResponse:
+                _targetRequestKey = Result?.RequestKey;
+                _targetChain = Result?.Metadata?.PublicMetadata?.ChainId ?? "0";
+                break;
+            case TransactionReference.SentCommand:
+                _targetRequestKey = Command?.Hash;
+                _targetChain = Command?.Command.Metadata?.ChainId ?? "0";
+                break;
+            case TransactionReference.RequestKey:
+                _targetRequestKey = RequestKey;
+                _targetChain = ChainId;
+                break;
+        }
+
+        if (string.IsNullOrWhiteSpace(_targetRequestKey))
+            return;
+
+        if (!_loading && (_command == null || !_command.Hash.Equals(_targetRequestKey)))
+            await Refresh();
+
+        if (_timer == null && _command == null)
+        {
+            _timer = new Timer(3000);
+            _timer.Elapsed += (s, e) => Refresh();
+            _timer.Enabled = true;
+        }
+    }
+
+    private async Task Import()
+    {
+        _navigationManager.NavigateTo($"/PrepareTransaction/{_targetChain}/{_targetRequestKey}");
+    }
+
+    private async Task Refresh()
+    {
+        _loading = true;
+        StateHasChanged();
+        if (_commandResponse == null)
+            _commandResponse = await _pactClient.PollRequestAsync(_targetChain, _targetRequestKey);
+
+        if (_commandResponse != null && _command == null)
+            _command = await _chainwebQueryService.FetchTransactionAsync(_targetChain, _commandResponse.Metadata.BlockHash, _targetRequestKey);
+
+        _loading = false;
+        StateHasChanged();
+
+        if (_command != null && _timer != null)
+        {
+            Console.WriteLine($"Received tx details, stopping refresh");
+            _timer.Stop();
+            _timer.Close();
+        }
+    }
+}

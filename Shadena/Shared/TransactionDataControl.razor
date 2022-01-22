@@ -105,20 +105,20 @@
 
   public async Task AddDataItem()
   {
-    if (string.IsNullOrWhiteSpace(newItemKey) || Transaction.Payload.Exec.Data.ContainsKey(newItemKey))
+    if (string.IsNullOrWhiteSpace(newItemKey) || Transaction.Payload.Exec.DataAsObject.ContainsKey(newItemKey))
     {
       newItemKey = "";
       return;
     }
     
-    Transaction.Payload.Exec.Data.Add(newItemKey, JsonValue.Create(10.3));
+    Transaction.Payload.Exec.DataAsObject.Add(newItemKey, JsonValue.Create(10.3));
     newItemKey = "";
     await RefreshDisplay();
   }
 
   public async Task RemoveDataItem(string key)
   {
-    Transaction.Payload.Exec.Data.Remove(key);
+    Transaction.Payload.Exec.DataAsObject.Remove(key);
     await RefreshDisplay();
   }
 
@@ -129,8 +129,8 @@
     if (string.IsNullOrWhiteSpace(newName))
       return;
     
-    Transaction.Payload.Exec.Data[newName] = JsonNode.Parse(Transaction.Payload.Exec.Data[key].ToJsonString());
-    Transaction.Payload.Exec.Data.Remove(key);
+    Transaction.Payload.Exec.DataAsObject[newName] = JsonNode.Parse(Transaction.Payload.Exec.DataAsObject[key].ToJsonString());
+    Transaction.Payload.Exec.DataAsObject.Remove(key);
 
     var matchingItem = items.First(i => i.Key == key);
     items.Remove(matchingItem);
@@ -143,8 +143,8 @@
 
   public async Task RefreshDisplay()
   {
-    int removed = items.RemoveAll(item => !Transaction.Payload.Exec.Data.Any(newItem => newItem.Key == item.Key));
-    var toAdd = Transaction.Payload.Exec.Data.Where(newItem => !items.Any(oldItem => oldItem.Key == newItem.Key)).Select(a => new KeyValuePair<string, DataInputModel>(a.Key, new DataInputModel(a.Value) {ChangedHandler = UpdateBacking})).ToList();
+    int removed = items.RemoveAll(item => !Transaction.Payload.Exec.DataAsObject.Any(newItem => newItem.Key == item.Key));
+    var toAdd = Transaction.Payload.Exec.DataAsObject.Where(newItem => !items.Any(oldItem => oldItem.Key == newItem.Key)).Select(a => new KeyValuePair<string, DataInputModel>(a.Key, new DataInputModel(a.Value) {ChangedHandler = UpdateBacking})).ToList();
     items.AddRange(toAdd);
 
     dataDirty |= removed > 0 || toAdd.Any();
@@ -160,13 +160,13 @@
       var active = await JS.InvokeAsync<string>("getActiveDataType", item.Value.idPrefix);
       item.Value.ActiveSelection = active;
 
-      var prevValue = Transaction.Payload.Exec.Data[item.Key];
+      var prevValue = Transaction.Payload.Exec.DataAsObject[item.Key];
       if (prevValue == null || prevValue.ToJsonString() != item.Value.GetValue().ToJsonString())
       {
         dataDirty = true;
       }
 
-      Transaction.Payload.Exec.Data[item.Key] = item.Value.GetValue();
+      Transaction.Payload.Exec.DataAsObject[item.Key] = item.Value.GetValue();
     }
 
     if (dataDirty)

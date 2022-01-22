@@ -103,21 +103,7 @@ public class ChainwebQueryService : IChainwebQueryService
 
     public async Task<FungibleV2Account> GetAccountDetailsAsync(string chain, string module, AccountIdentifier account, bool ignoreCache = false)
     {
-        var cacheKey = FungibleV2Account.GetCacheKey(Network, chain, module, account.Name);
-
-        if (_cache.HasItem(cacheKey))
-            return await _cache.GetItem<FungibleV2Account>(cacheKey);
-
-        var detailsCommand = PactClient.GenerateAccountDetailQuery(chain, module, account.Name);
-        var result = await PactClient.ExecuteLocalAsync(detailsCommand);
-        var resultAccount = FungibleV2Account.FromResponse(result, module);
-
-        if (result.Result.Status == "success")
-        {
-            await _cache.SetItem(resultAccount);
-        }
-
-        return resultAccount;
+        return (await GetAccountDetailsAsync(new[] {module}, new[] {account}, ignoreCache)).SingleOrDefault();
     }
 
     public async Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string module, AccountIdentifier account, bool ignoreCache = false)
@@ -130,6 +116,56 @@ public class ChainwebQueryService : IChainwebQueryService
         await ForAllChains(chain => GetModuleMetadataAsync(chain, modules));
         return (await ForAllChains(chain => GetAccountDetailsAsync(chain, modules, accounts, ignoreCache)))
             .SelectMany(t => t);
+    }
+    
+    public async Task<PactCommand> FetchTransactionAsync(PactCommandResponse response) =>
+        await FetchTransactionAsync(response.Metadata.PublicMetadata.ChainId, response.Metadata.BlockHash,
+            response.RequestKey);
+
+    public async Task<PactCommand> FetchTransactionAsync(string chain, string requestKey) =>
+        await FetchTransactionAsync(chain, (await PactClient.PollRequestAsync(chain, requestKey)).Metadata.BlockHash, requestKey);
+    
+    public async Task<PactCommand> FetchTransactionAsync(string chain, string blockHash, string requestKey)
+    {
+        ChainwebBlockPayload blockPayload = await FetchBlockPayloadAsync(chain, blockHash);
+        if (blockPayload == null)
+            return null;
+
+        return await blockPayload.GetTransaction(requestKey);
+    }
+
+    private async Task<T> FetchAndCache<T>(string cacheKey, Func<Task<T>> fetchAction) where T : ICacheable
+    {
+        T result;
+
+        if (_cache.HasItem(cacheKey))
+            result = await _cache.GetItem<T>(cacheKey);
+        else
+            result = await fetchAction();
+
+        if (string.Equals(result?.CacheKey, cacheKey))
+            await _cache.SetItem(result);
+
+        return result;
+    }
+
+    private async Task<ChainwebBlockPayload> FetchBlockPayloadAsync(string chain, string blockHash)
+    {
+        var headerKey = ChainwebBlockHeader.GetCacheKey(blockHash);
+        ChainwebBlockHeader blockHeader =
+            await FetchAndCache(headerKey, () => PactClient.GetBlockHeaderAsync(chain, blockHash));
+        
+        if (blockHeader == null)
+            return null;
+
+        var payloadHash = blockHeader.PayloadHash;
+        Console.WriteLine($"Block header for block {blockHash}: {JsonSerializer.Serialize(blockHeader, PactClient.PactJsonOptions)}");
+        Console.WriteLine($"Payload hash for block {blockHash} is {payloadHash}");
+        var payloadKey = ChainwebBlockPayload.GetCacheKey(payloadHash);
+        ChainwebBlockPayload blockPayload =
+            await FetchAndCache(payloadKey, () => PactClient.GetBlockPayloadAsync(chain, payloadHash));
+
+        return blockPayload;
     }
 
     public async Task<bool> ModuleExistsAsync(string chain, string module)
@@ -216,6 +252,9 @@ public interface IChainwebQueryService
     Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string module, AccountIdentifier account, bool ignoreCache = false);
     Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string chain, string[] modules, AccountIdentifier[] accounts, bool ignoreCache = false);
     Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string[] modules, AccountIdentifier[] accounts, bool ignoreCache = false);
+    Task<PactCommand> FetchTransactionAsync(PactCommandResponse response);
+    Task<PactCommand> FetchTransactionAsync(string chain, string requestKey);
+    Task<PactCommand> FetchTransactionAsync(string chain, string blockHash, string requestKey);
     Task<IEnumerable<PactModuleMetadata>> GetModuleMetadataAsync(string chain, string[] modules);
     Task<PactModuleMetadata> GetModuleMetadataAsync(string chain, string module);
     Task<bool> ModuleExistsAsync(string chain, string module);

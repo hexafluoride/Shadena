@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace PactSharp.Types;
@@ -12,6 +13,7 @@ public class PactCommandResponse
     public PactCommandResult Result { get; set; }
     
     [JsonPropertyName("txId")]
+    [JsonConverter(typeof(StringCoercingJsonConverter))]
     public string TransactionId { get; set; }
     public long Gas { get; set; }
     public string Logs { get; set; }

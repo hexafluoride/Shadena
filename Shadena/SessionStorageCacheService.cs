@@ -41,18 +41,21 @@ public class SessionStorageCacheService : ICacheService
         var cached = Get(item);
         var length = expirySeconds == 0 ? TimeSpan.FromSeconds(3600) : TimeSpan.FromSeconds(expirySeconds);
 
-        if (cached != null)
+        await Task.Run(delegate
         {
-            cached.Contents = JsonSerializer.SerializeToElement(item);
-            cached.Cached = DateTime.UtcNow;
-            cached.Expires = cached.Cached + length;
-            cached.Invalidate();
-        }
-        else
-        {
-            _buffer[item.CacheKey] = CachedItem.FromCacheable(item, length);
-            _buffer[item.CacheKey].Dirty = true;
-        }
+            if (cached != null)
+            {
+                cached.Contents = JsonSerializer.SerializeToElement(item);
+                cached.Cached = DateTime.UtcNow;
+                cached.Expires = cached.Cached + length;
+                cached.Invalidate();
+            }
+            else
+            {
+                _buffer[item.CacheKey] = CachedItem.FromCacheable(item, length);
+                _buffer[item.CacheKey].Dirty = true;
+            }
+        });
 
         return true;
     }
