@@ -14,6 +14,10 @@ public class PactSigner
     [JsonPropertyName("clist")] public List<PactCapability> Capabilities { get; set; } = new();
     public string Addr { get; set; }
 
+    public PactSigner()
+    {
+    }
+
     public PactSigner(string pubKey)
     {
         PubKey = pubKey;

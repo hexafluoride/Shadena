@@ -3,6 +3,7 @@
 @page "/PrepareTransaction/{chainId}/{requestKey?}"
 
 @using System.Text.Json
+@using System.Text.Json.Nodes
 @using System.Timers
 @using Microsoft.AspNetCore.Components
 @using PactSharp
@@ -32,37 +33,96 @@
         <h5 class="modal-title" id="export-modal-label">Import and export</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <ul class="nav nav-tabs" id="export-tab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="json-local-tab" data-bs-toggle="tab" data-bs-target="#export-json-local" type="button" role="tab" aria-controls="json-local" aria-selected="true">JSON for /local</button>
-            </li>
-            <li class="nav-item" role="presentation">   
-                <button class="nav-link" id="json-send-tab" data-bs-toggle="tab" data-bs-target="#export-json-send" type="button" role="tab" aria-controls="json-send" aria-selected="false">JSON for /send</button>
-            </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="yaml-tab" data-bs-toggle="tab" data-bs-target="#export-yaml" type="button" role="tab" aria-controls="export-yaml" aria-selected="false">YAML</button>
-          </li>
-        </ul>
-        <div class="tab-content" id="export-tab-content">
-            <div class="tab-pane fade show active" id="export-json-local" role="tabpanel" aria-labelledby="json-local-tab">
-                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForLocal">
-                
-                </textarea>
-            </div>
-            <div class="tab-pane fade" id="export-json-send" role="tabpanel" aria-labelledby="json-send-tab">
-                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForSend">
-                
-                </textarea>
-            </div>
-            <div class="tab-pane fade" id="export-yaml" role="tabpanel" aria-labelledby="yaml-tab">
-                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.YamlEncoded">
-                                
+        <div class="modal-body">
+            <ul class="nav nav-tabs" id="import-export-selector" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="export-tab" data-bs-toggle="tab" data-bs-target="#export-transaction" type="button" role="tab" aria-controls="export-transaction" aria-selected="true">Export</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="import-tab" data-bs-toggle="tab" data-bs-target="#import-transaction" type="button" role="tab" aria-controls="import-transaction" aria-selected="false">Import</button>
+                </li>
+            </ul>
+            <div class="tab-content" id="import-export-selector-content">
+                <div class="tab-pane fade show active" id="export-transaction" role="tabpanel" aria-labelledby="export-tab">
+                    <ul class="nav nav-tabs" id="export-type-selector" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="json-local-tab" data-bs-toggle="tab" data-bs-target="#export-json-local" type="button" role="tab" aria-controls="json-local" aria-selected="true">JSON for /local</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="json-send-tab" data-bs-toggle="tab" data-bs-target="#export-json-send" type="button" role="tab" aria-controls="json-send" aria-selected="false">JSON for /send</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="yaml-tab" data-bs-toggle="tab" data-bs-target="#export-yaml" type="button" role="tab" aria-controls="export-yaml" aria-selected="false">YAML</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="export-tab-content">
+                        <div class="tab-pane fade show active" id="export-json-local" role="tabpanel" aria-labelledby="json-local-tab">
+                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForLocal">
+                        </textarea>
+                        </div>
+                        <div class="tab-pane fade" id="export-json-send" role="tabpanel" aria-labelledby="json-send-tab">
+                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForSend">
+                        </textarea>
+                        </div>
+                        <div class="tab-pane fade" id="export-yaml" role="tabpanel" aria-labelledby="yaml-tab">
+                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.YamlEncoded">                
+                        </textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade show" id="import-transaction" role="tabpanel" aria-labelledby="import-tab">
+                    <ul class="nav nav-tabs" id="import-type-selector" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="import-json-tab" data-bs-toggle="tab" data-bs-target="#import-json" type="button" role="tab" aria-controls="import-json" aria-selected="true">JSON</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="import-yaml-tab" data-bs-toggle="tab" data-bs-target="#import-yaml" type="button" role="tab" aria-controls="import-yaml" aria-selected="false">YAML</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="import-from-tx-tab" data-bs-toggle="tab" data-bs-target="#import-from-tx" type="button" role="tab" aria-controls="import-from-tx" aria-selected="false">Request key</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="import-tab-content">
+                        <div class="tab-pane fade show active" id="import-json" role="tabpanel" aria-labelledby="import-json-tab">
+                            <div class="mb-3">
+                                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" @bind="@Import.Json">
                                 </textarea>
+                            </div>
+                            <div class="mb-3">
+                                <button class="btn btn-success" type="button" @onclick="@(async () => await ImportAsync(ImportType.Json))"><span class="oi oi-account-login" aria-hidden="true"></span> Import</button>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="import-yaml" role="tabpanel" aria-labelledby="import-yaml-tab">
+                            <div class="mb-3">
+                                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" @bind="@Import.Yaml">
+                                </textarea>
+                            </div>
+                            <div class="mb-3">
+                                <button class="btn btn-success" type="button" @onclick="@(async () => await ImportAsync(ImportType.Yaml))"><span class="oi oi-account-login" aria-hidden="true"></span> Import</button>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="import-from-tx" role="tabpanel" aria-labelledby="import-from-tx-tab">
+                            <div class="mb-3">
+                                <label>Chain</label>
+                                <select class="form-select" @bind="@Import.ChainId">
+                                    @foreach (var chain in _pactClient.RecognizedChains)
+                                    {
+                                        <option value="@chain">@chain</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label>Request key</label>
+                                <input type="text" class="form-control" placeholder="" aria-label="Request key" @bind="@Import.RequestKey"/>
+                            </div>
+                            <div class="mb-3">
+                                <button class="btn btn-success" type="button" @onclick="@(async () => await ImportAsync(ImportType.RequestKey))"><span class="oi oi-account-login" aria-hidden="true"></span> Import</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-
-      </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
@@ -202,6 +262,8 @@
     bool _txImported = false;
     bool _editorInitialized = false;
 
+    ImportModel Import { get; set; } = new();
+
     protected override async Task OnInitializedAsync()
     {
         cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
@@ -227,10 +289,6 @@
             _txImported = true;
             cmdModel = await _chainwebQueryService.FetchTransactionAsync(chainId, requestKey);
 
-            if (_editorInitialized)
-            {
-                await JS.InvokeVoidAsync("window.setEditorCode", cmdModel?.Command?.Payload?.Exec?.Code);
-            }
         }
         else
         {
@@ -246,6 +304,61 @@
             timer.Interval = 1000;
             timer.Elapsed += async (s, e) => { await CheckForNewCode(); };
             timer.Enabled = true;
+        }
+    }
+
+    private async Task<PactCommand> RecoverFromJson(string json)
+    {
+        Console.WriteLine($"Importing from json: {json}");
+        var parsedObject = JsonNode.Parse(json).AsObject();
+
+        if (parsedObject.ContainsKey("cmds"))
+        {
+            var command = parsedObject["cmds"][0].Deserialize<PactCommand>(PactClient.PactJsonOptions);
+            command.SetCommand(command.CommandEncoded);
+            return command;
+        }
+        if (parsedObject.ContainsKey("hash"))
+        {
+            var command = parsedObject.Deserialize<PactCommand>(PactClient.PactJsonOptions);
+            command.SetCommand(command.CommandEncoded);
+            return command;
+        }
+        if (parsedObject.ContainsKey("nonce"))
+        {
+            var cmd = parsedObject.Deserialize<PactCmd>(PactClient.PactJsonOptions);
+            var command = _pactClient.BuildCommand(cmd);
+            return command;
+        }
+
+        return null;
+    }
+
+    private async Task ImportAsync(ImportType type)
+    {
+        Console.WriteLine($"Importing tx type {type}");
+        
+        switch (type)
+        {
+            case ImportType.Json:
+                cmdModel = await RecoverFromJson(Import.Json);
+                break;
+            case ImportType.RequestKey:
+                cmdModel = await _chainwebQueryService.FetchTransactionAsync(Import.ChainId, Import.RequestKey);
+                break;
+            case ImportType.Yaml:
+                cmdModel = _pactClient.BuildCommand(PactCmd.YamlDeserializer.Deserialize<PactCmd>(Import.Yaml));
+                break;
+        }
+
+        if (cmdModel == null)
+        {
+            Console.WriteLine($"Import failed.");
+            cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        }
+        else if (_editorInitialized)
+        {
+            await JS.InvokeVoidAsync("window.setEditorCode", cmdModel?.Command?.Payload?.Exec?.Code);
         }
     }
 
@@ -352,5 +465,18 @@
 
         inputEnabled = true;
         StateHasChanged();
+    }
+
+    public class ImportModel
+    {
+        public string RequestKey { get; set; }
+        public string ChainId { get; set; }
+        public string Json { get; set; }
+        public string Yaml { get; set; }
+    }
+
+    public enum ImportType
+    {
+        Json, Yaml, RequestKey
     }
 }

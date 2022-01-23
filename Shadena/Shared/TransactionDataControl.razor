@@ -12,306 +12,345 @@
 </div>
 
 <div class="accordion mb-3">
-  @{
-    var i = 0;
-    
-    foreach (var pair in items)
-    {
-      var uniqueIdPrefix = Utility.HashEncoded(Transaction.Nonce) + "-" + i++ + "-";
-      pair.Value.idPrefix = uniqueIdPrefix;
-      <div class="accordion-item">
-        <h2 class="accordion-header" id="@uniqueIdPrefix-heading">
-          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#@uniqueIdPrefix-collapse" aria-expanded="true" aria-controls="@uniqueIdPrefix-collapse">
-            @pair.Key (@pair.Value.ActiveSelection)
-          </button>
-        </h2>
-        <div id="@uniqueIdPrefix-collapse" class="accordion-collapse collapse show" aria-labelledby="@uniqueIdPrefix-heading">
-          <div class="accordion-body">
-            <div class="mb-3">
-              <button class="btn btn-danger" type="button" @onclick="@(e => RemoveDataItem(pair.Key))"><span class="oi oi-trash" aria-hidden="true"></span> Remove</button>
-              <button class="btn btn-outline-primary" type="button" @onclick="@(e => RenameDataItem(pair.Key))"><span class="oi oi-pencil" aria-hidden="true"></span> Rename</button>
-            </div>
-            <ul class="nav nav-pills mb-3" id="@uniqueIdPrefix-type-tab" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="@uniqueIdPrefix-bool-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-bool" type="button" role="tab" aria-controls="@uniqueIdPrefix-bool" aria-selected="true" @onclick="RefreshDisplay">Boolean</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="@uniqueIdPrefix-integer-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-integer" type="button" role="tab" aria-controls="@uniqueIdPrefix-integer" aria-selected="false" @onclick="RefreshDisplay">Integer</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="@uniqueIdPrefix-decimal-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-decimal" type="button" role="tab" aria-controls="@uniqueIdPrefix-decimal" aria-selected="false" @onclick="RefreshDisplay">Decimal</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="@uniqueIdPrefix-string-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-string" type="button" role="tab" aria-controls="@uniqueIdPrefix-string" aria-selected="false" @onclick="RefreshDisplay">String</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="@uniqueIdPrefix-keyset-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-keyset" type="button" role="tab" aria-controls="@uniqueIdPrefix-keyset" aria-selected="false" @onclick="RefreshDisplay">Keyset</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="@uniqueIdPrefix-freeform-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-freeform" type="button" role="tab" aria-controls="@uniqueIdPrefix-freeform" aria-selected="false" @onclick="RefreshDisplay">JSON</button>
-              </li>
-            </ul>
-            <div class="tab-content" id="pills-tabContent">
-              <div class="tab-pane fade show active" id="@uniqueIdPrefix-bool" role="tabpanel" aria-labelledby="@uniqueIdPrefix-bool-tab">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="@uniqueIdPrefix-bool-entry" @bind="pair.Value.BooleanValue">
-                  <label class="form-check-label" for="@uniqueIdPrefix-bool-entry">@pair.Value.BooleanValue</label>
+    @{
+        var i = 0;
+
+        foreach (var pair in items)
+        {
+            var uniqueIdPrefix = Utility.HashEncoded(Transaction.Nonce) + "-" + i++ + "-";
+            pair.Value.idPrefix = uniqueIdPrefix;
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="@uniqueIdPrefix-heading">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#@uniqueIdPrefix-collapse" aria-expanded="true" aria-controls="@uniqueIdPrefix-collapse">
+                        @pair.Key (@pair.Value.ActiveSelection)
+                    </button>
+                </h2>
+                <div id="@uniqueIdPrefix-collapse" class="accordion-collapse collapse show" aria-labelledby="@uniqueIdPrefix-heading">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <button class="btn btn-danger" type="button" @onclick="@(e => RemoveDataItem(pair.Key))"><span class="oi oi-trash" aria-hidden="true"></span> Remove</button>
+                            <button class="btn btn-outline-primary" type="button" @onclick="@(e => RenameDataItem(pair.Key))"><span class="oi oi-pencil" aria-hidden="true"></span> Rename</button>
+                        </div>
+                        <ul class="nav nav-pills mb-3" id="@uniqueIdPrefix-type-tab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="@uniqueIdPrefix-bool-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-bool" type="button" role="tab" aria-controls="@uniqueIdPrefix-bool" aria-selected="true" @onclick="RefreshDisplay">Boolean</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="@uniqueIdPrefix-integer-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-integer" type="button" role="tab" aria-controls="@uniqueIdPrefix-integer" aria-selected="false" @onclick="RefreshDisplay">Integer</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="@uniqueIdPrefix-decimal-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-decimal" type="button" role="tab" aria-controls="@uniqueIdPrefix-decimal" aria-selected="false" @onclick="RefreshDisplay">Decimal</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="@uniqueIdPrefix-string-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-string" type="button" role="tab" aria-controls="@uniqueIdPrefix-string" aria-selected="false" @onclick="RefreshDisplay">String</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="@uniqueIdPrefix-keyset-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-keyset" type="button" role="tab" aria-controls="@uniqueIdPrefix-keyset" aria-selected="false" @onclick="RefreshDisplay">Keyset</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="@uniqueIdPrefix-freeform-tab" data-bs-toggle="pill" data-bs-target="#@uniqueIdPrefix-freeform" type="button" role="tab" aria-controls="@uniqueIdPrefix-freeform" aria-selected="false" @onclick="RefreshDisplay">JSON</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="pills-tabContent">
+                            <div class="tab-pane fade show active" id="@uniqueIdPrefix-bool" role="tabpanel" aria-labelledby="@uniqueIdPrefix-bool-tab">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="@uniqueIdPrefix-bool-entry" @bind="pair.Value.BooleanValue">
+                                    <label class="form-check-label" for="@uniqueIdPrefix-bool-entry">@pair.Value.BooleanValue</label>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="@uniqueIdPrefix-integer" role="tabpanel" aria-labelledby="@uniqueIdPrefix-integer-tab">
+                                <input type="number" class="form-control" step="1" @bind="pair.Value.IntegerValue"/>
+                            </div>
+                            <div class="tab-pane fade" id="@uniqueIdPrefix-decimal" role="tabpanel" aria-labelledby="@uniqueIdPrefix-decimal-tab">
+                                <input type="number" class="form-control" step="0.0001" @bind="pair.Value.DecimalValue"/>
+                            </div>
+                            <div class="tab-pane fade" id="@uniqueIdPrefix-string" role="tabpanel" aria-labelledby="@uniqueIdPrefix-string-tab">
+                                <textarea class="form-control" placeholder="Enter text..." style="font-family: monospace; min-height:25vh;" @bind="pair.Value.StringValue"></textarea>
+                            </div>
+                            <div class="tab-pane fade" id="@uniqueIdPrefix-keyset" role="tabpanel" aria-labelledby="@uniqueIdPrefix-keyset-tab">
+                                <KeysetControl Keyset="pair.Value.KeysetValue" KeysetChanged="RefreshDisplay"/>
+                            </div>
+                            <div class="tab-pane fade" id="@uniqueIdPrefix-freeform" role="tabpanel" aria-labelledby="@uniqueIdPrefix-freeform-tab">
+                                <label>JSON value</label>
+                                <textarea class="form-control" style="font-family: monospace; min-height:25vh;" @bind="pair.Value.FreeformValue"></textarea>
+                            </div>
+                        </div>
+
+
+                    </div>
                 </div>
-              </div>
-              <div class="tab-pane fade" id="@uniqueIdPrefix-integer" role="tabpanel" aria-labelledby="@uniqueIdPrefix-integer-tab">
-                <input type="number" class="form-control" step="1" @bind="pair.Value.IntegerValue"/>
-              </div>
-              <div class="tab-pane fade" id="@uniqueIdPrefix-decimal" role="tabpanel" aria-labelledby="@uniqueIdPrefix-decimal-tab">
-                <input type="number" class="form-control" step="0.0001" @bind="pair.Value.DecimalValue"/>
-              </div>
-              <div class="tab-pane fade" id="@uniqueIdPrefix-string" role="tabpanel" aria-labelledby="@uniqueIdPrefix-string-tab">
-                <textarea class="form-control" placeholder="Enter text..." style="font-family: monospace; min-height:25vh;" @bind="pair.Value.StringValue"></textarea>
-              </div>
-              <div class="tab-pane fade" id="@uniqueIdPrefix-keyset" role="tabpanel" aria-labelledby="@uniqueIdPrefix-keyset-tab">
-                <KeysetControl Keyset="pair.Value.KeysetValue" KeysetChanged="RefreshDisplay"/>
-              </div>
-              <div class="tab-pane fade" id="@uniqueIdPrefix-freeform" role="tabpanel" aria-labelledby="@uniqueIdPrefix-freeform-tab">
-                <label>JSON value</label>
-                <textarea class="form-control" style="font-family: monospace; min-height:25vh;" @bind="pair.Value.FreeformValue"></textarea>
-              </div>
             </div>
-
-
-          </div>
-        </div>
-      </div>
+        }
     }
-  }
 </div>
 
 @code {
-  [Parameter]
-  public PactCmd Transaction { get; set; }
-  
-  [Parameter]
-  public EventCallback DataChanged { get; set; }
 
-  public List<KeyValuePair<string, DataInputModel>> items { get; set; } = new();
+    [Parameter]
+    public PactCmd Transaction { get; set; }
 
-  string newItemKey = "";
+    [Parameter]
+    public EventCallback DataChanged { get; set; }
 
-  bool dataDirty = false;
-  
-  public override async Task SetParametersAsync(ParameterView parameters)
-  {
-    await base.SetParametersAsync(parameters);
-    await RefreshDisplay();
-  }
+    public List<KeyValuePair<string, DataInputModel>> items { get; set; } = new();
 
-  public async Task AddDataItem()
-  {
-    if (string.IsNullOrWhiteSpace(newItemKey) || Transaction.Payload.Exec.DataAsObject.ContainsKey(newItemKey))
+    string newItemKey = "";
+
+    bool dataDirty = false;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
     {
-      newItemKey = "";
-      return;
+        await base.SetParametersAsync(parameters);
+        await RefreshDisplay();
     }
-    
-    Transaction.Payload.Exec.DataAsObject.Add(newItemKey, JsonValue.Create(10.3));
-    newItemKey = "";
-    await RefreshDisplay();
-  }
 
-  public async Task RemoveDataItem(string key)
-  {
-    Transaction.Payload.Exec.DataAsObject.Remove(key);
-    await RefreshDisplay();
-  }
-
-  public async Task RenameDataItem(string key)
-  {
-    var newName = await JS.InvokeAsync<string>("prompt", $"Enter new key for \"{key}\"");
-
-    if (string.IsNullOrWhiteSpace(newName))
-      return;
-    
-    Transaction.Payload.Exec.DataAsObject[newName] = JsonNode.Parse(Transaction.Payload.Exec.DataAsObject[key].ToJsonString());
-    Transaction.Payload.Exec.DataAsObject.Remove(key);
-
-    var matchingItem = items.First(i => i.Key == key);
-    items.Remove(matchingItem);
-    var newPair = new KeyValuePair<string, DataInputModel>(newName, matchingItem.Value);
-    items.Add(newPair);
-
-    dataDirty = true;
-    await RefreshDisplay();
-  }
-
-  public async Task RefreshDisplay()
-  {
-    int removed = items.RemoveAll(item => !Transaction.Payload.Exec.DataAsObject.Any(newItem => newItem.Key == item.Key));
-    var toAdd = Transaction.Payload.Exec.DataAsObject.Where(newItem => !items.Any(oldItem => oldItem.Key == newItem.Key)).Select(a => new KeyValuePair<string, DataInputModel>(a.Key, new DataInputModel(a.Value) {ChangedHandler = UpdateBacking})).ToList();
-    items.AddRange(toAdd);
-
-    dataDirty |= removed > 0 || toAdd.Any();
-    
-    StateHasChanged();
-    await UpdateBacking();
-  }
-
-  public async Task UpdateBacking()
-  {
-    foreach (var item in items.ToList())
+    public async Task AddDataItem()
     {
-      var active = await JS.InvokeAsync<string>("getActiveDataType", item.Value.idPrefix);
-      item.Value.ActiveSelection = active;
+        if (string.IsNullOrWhiteSpace(newItemKey) || Transaction.Payload.Exec.DataAsObject.ContainsKey(newItemKey))
+        {
+            newItemKey = "";
+            return;
+        }
 
-      var prevValue = Transaction.Payload.Exec.DataAsObject[item.Key];
-      if (prevValue == null || prevValue.ToJsonString() != item.Value.GetValue().ToJsonString())
-      {
+        Transaction.Payload.Exec.DataAsObject.Add(newItemKey, JsonValue.Create(10.3));
+        newItemKey = "";
+        await RefreshDisplay();
+    }
+
+    public async Task RemoveDataItem(string key)
+    {
+        Transaction.Payload.Exec.DataAsObject.Remove(key);
+        await RefreshDisplay();
+    }
+
+    public async Task RenameDataItem(string key)
+    {
+        var newName = await JS.InvokeAsync<string>("prompt", $"Enter new key for \"{key}\"");
+
+        if (string.IsNullOrWhiteSpace(newName))
+            return;
+
+        Transaction.Payload.Exec.DataAsObject[newName] = JsonNode.Parse(Transaction.Payload.Exec.DataAsObject[key].ToJsonString());
+        Transaction.Payload.Exec.DataAsObject.Remove(key);
+
+        var matchingItem = items.First(i => i.Key == key);
+        items.Remove(matchingItem);
+        var newPair = new KeyValuePair<string, DataInputModel>(newName, matchingItem.Value);
+        items.Add(newPair);
+
         dataDirty = true;
-      }
-
-      Transaction.Payload.Exec.DataAsObject[item.Key] = item.Value.GetValue();
+        await RefreshDisplay();
     }
 
-    if (dataDirty)
+    public async Task RefreshDisplay()
     {
-      dataDirty = false;
-    
-      StateHasChanged();
-      await DataChanged.InvokeAsync();
+        int removed = items.RemoveAll(item => !Transaction.Payload.Exec.DataAsObject.Any(newItem => newItem.Key == item.Key));
+        var toAdd = Transaction.Payload.Exec.DataAsObject
+            .Where(newItem => !items.Any(oldItem => oldItem.Key == newItem.Key))
+            .Select(a => new KeyValuePair<string, DataInputModel>(a.Key, new DataInputModel(a.Value) {ChangedHandler = UpdateBacking}))
+            .ToList();
+        items.AddRange(toAdd);
+
+        dataDirty |= removed > 0 || toAdd.Any();
+
+        StateHasChanged();
+        await UpdateBacking();
     }
-  }
 
-  public class DataInputModel
-  {
-    public string ActiveSelection { get; set; } = "string";
-
-    public bool BooleanValue
+    public async Task UpdateBacking()
     {
-      get => _booleanValue;
-      set
-      {
-        if (_booleanValue != value)
-          FireChangedEvent();
-        _booleanValue = value;
-      }
+        foreach (var item in items.ToList())
+        {
+            if (!item.Value.TypeSynchronized)
+            {
+                await JS.InvokeVoidAsync("setActiveDataType", item.Value.idPrefix, item.Value.ActiveSelection);
+                item.Value.TypeSynchronized = true;
+            }
+
+            var active = await JS.InvokeAsync<string>("getActiveDataType", item.Value.idPrefix);
+            item.Value.ActiveSelection = active;
+
+            var prevValue = Transaction.Payload.Exec.DataAsObject[item.Key];
+            if (prevValue == null || prevValue.ToJsonString() != item.Value.GetValue().ToJsonString())
+            {
+                dataDirty = true;
+            }
+
+            Transaction.Payload.Exec.DataAsObject[item.Key] = item.Value.GetValue();
+        }
+
+        if (dataDirty)
+        {
+            dataDirty = false;
+
+            StateHasChanged();
+            await DataChanged.InvokeAsync();
+        }
     }
 
-    public decimal DecimalValue
+    public class DataInputModel
     {
-      get => _decimalValue;
-      set
-      {
-        if (_decimalValue != value)
-          FireChangedEvent();
-        _decimalValue = value;
-      }
+        public string ActiveSelection { get; set; } = "string";
+
+        public bool BooleanValue
+        {
+            get => _booleanValue;
+            set
+            {
+                if (_booleanValue != value)
+                    FireChangedEvent();
+                _booleanValue = value;
+            }
+        }
+
+        public decimal DecimalValue
+        {
+            get => _decimalValue;
+            set
+            {
+                if (_decimalValue != value)
+                    FireChangedEvent();
+                _decimalValue = value;
+            }
+        }
+
+        public int IntegerValue
+        {
+            get => _integerValue;
+            set
+            {
+                if (_integerValue != value)
+                    FireChangedEvent();
+                _integerValue = value;
+            }
+        }
+
+        public string StringValue
+        {
+            get => _stringValue;
+            set
+            {
+                if (_stringValue != value)
+                    FireChangedEvent();
+                _stringValue = value;
+            }
+        }
+
+        public PactKeyset KeysetValue { get; set; }
+
+        public string FreeformValue
+        {
+            get => _freeformValue;
+            set
+            {
+                if (_freeformValue != value)
+                    FireChangedEvent();
+                _freeformValue = value;
+            }
+        }
+
+        public bool TypeSynchronized { get; set; } = false;
+
+        internal string idPrefix = "";
+        private bool _booleanValue;
+        private decimal _decimalValue;
+        private int _integerValue;
+        private string _stringValue = "";
+        private string _freeformValue = "";
+
+        private void FireChangedEvent()
+        {
+            ChangedHandler?.Invoke();
+        }
+
+        public Func<Task> ChangedHandler { get; set; }
+
+        public DataInputModel(JsonNode node)
+        {
+            if (node is JsonValue asValue)
+            {
+                if (asValue.TryGetValue(out _booleanValue))
+                    ActiveSelection = "bool";
+                else if (asValue.TryGetValue(out _integerValue))
+                    ActiveSelection = "integer";
+                else if (asValue.TryGetValue(out _decimalValue))
+                    ActiveSelection = "decimal";
+                else if (asValue.TryGetValue(out _stringValue))
+                    ActiveSelection = "string";
+            }
+            else if (node is JsonObject asObject)
+            {
+                if (asObject.ContainsKey("pred") && asObject.ContainsKey("keys"))
+                {
+                    ActiveSelection = "keyset";
+                    KeysetValue = asObject.Deserialize<PactKeyset>(PactClient.PactJsonOptions);
+                }
+                else
+                {
+                    ActiveSelection = "freeform";
+                    FreeformValue = node.ToJsonString();
+                }
+            }
+            else
+            {
+                ActiveSelection = "freeform";
+                FreeformValue = node.ToJsonString();
+            }
+        }
+
+        public DataInputModel(JsonElement value)
+        {
+            if (value.ValueKind == JsonValueKind.False || value.ValueKind == JsonValueKind.True)
+            {
+                BooleanValue = value.GetBoolean();
+                ActiveSelection = "bool";
+            }
+            else if (value.ValueKind == JsonValueKind.Number)
+            {
+                var decimalValue = value.GetDecimal();
+
+                DecimalValue = decimalValue;
+                IntegerValue = (int) decimalValue;
+
+                ActiveSelection = (DecimalValue == IntegerValue) ? "integer" : "decimal";
+            }
+            else if (value.ValueKind == JsonValueKind.String)
+            {
+                ActiveSelection = "string";
+                StringValue = value.GetString();
+            }
+            else
+            {
+                ActiveSelection = "freeform";
+                FreeformValue = value.GetRawText();
+            }
+        }
+
+        public JsonNode GetValue()
+        {
+            switch (ActiveSelection)
+            {
+                case "bool":
+                    return JsonValue.Create(BooleanValue);
+                    break;
+                case "integer":
+                    return JsonValue.Create(IntegerValue);
+                    break;
+                case "decimal":
+                    return JsonValue.Create(DecimalValue);
+                    break;
+                case "string":
+                    return JsonValue.Create(StringValue);
+                    break;
+                case "keyset":
+                    return JsonNode.Parse(JsonSerializer.Serialize(KeysetValue, PactClient.PactJsonOptions)).AsObject();
+                    break;
+                case "freeform":
+                default:
+                    return JsonNode.Parse(FreeformValue);
+                    break;
+            }
+        }
     }
 
-    public int IntegerValue
-    {
-      get => _integerValue;
-      set
-      {
-        if (_integerValue != value)
-          FireChangedEvent();
-        _integerValue = value;
-      }
-    }
-
-    public string StringValue
-    {
-      get => _stringValue;
-      set
-      {
-        if (_stringValue != value)
-          FireChangedEvent();
-        _stringValue = value;
-      }
-    }
-
-    public PactKeyset KeysetValue { get; set; } = new();
-
-    public string FreeformValue
-    {
-      get => _freeformValue;
-      set
-      {
-        if (_freeformValue != value)
-          FireChangedEvent();
-        _freeformValue = value;
-      }
-    }
-
-    internal string idPrefix = "";
-    private bool _booleanValue;
-    private decimal _decimalValue;
-    private int _integerValue;
-    private string _stringValue = "";
-    private PactKeyset _keysetValue = new();
-    private string _freeformValue = "";
-
-    private void FireChangedEvent()
-    {
-      ChangedHandler?.Invoke();
-    }
-    
-    public Func<Task> ChangedHandler { get; set; }
-
-    public DataInputModel(JsonNode value)
-    {
-      ActiveSelection = "freeform";
-      FreeformValue = value.ToJsonString();
-    }
-    
-    public DataInputModel(JsonElement value)
-    {
-      if (value.ValueKind == JsonValueKind.False || value.ValueKind == JsonValueKind.True)
-      {
-        BooleanValue = value.GetBoolean();
-        ActiveSelection = "bool";
-      }
-      else if (value.ValueKind == JsonValueKind.Number)
-      {
-        var decimalValue = value.GetDecimal();
-        
-        DecimalValue = decimalValue;
-        IntegerValue = (int)decimalValue;
-
-        ActiveSelection = (DecimalValue == IntegerValue) ? "integer" : "decimal";
-      }
-      else if (value.ValueKind == JsonValueKind.String)
-      {
-        ActiveSelection = "string";
-        StringValue = value.GetString();
-      }
-      else
-      {
-        ActiveSelection = "freeform";
-        FreeformValue = value.GetRawText();
-      }
-    }
-
-    public JsonNode GetValue()
-    {
-      switch (ActiveSelection)
-      {
-        case "bool":
-          return JsonValue.Create(BooleanValue);
-          break;
-        case "integer":
-          return JsonValue.Create(IntegerValue);
-          break;
-        case "decimal":
-          return JsonValue.Create(DecimalValue);
-          break;
-        case "string":
-          return JsonValue.Create(StringValue);
-          break;
-        case "keyset":
-          return JsonNode.Parse(JsonSerializer.Serialize(KeysetValue, PactClient.PactJsonOptions)).AsObject();
-          break;
-        case "freeform":
-        default:
-          return JsonNode.Parse(FreeformValue);
-          break;
-      }
-    }
-  }
 }
