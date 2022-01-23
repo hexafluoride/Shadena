@@ -356,9 +356,13 @@
             Console.WriteLine($"Import failed.");
             cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
         }
-        else if (_editorInitialized)
+        else
         {
-            await JS.InvokeVoidAsync("window.setEditorCode", cmdModel?.Command?.Payload?.Exec?.Code);
+            if (string.IsNullOrWhiteSpace(cmdModel.Command.Nonce))
+                cmdModel.Command.Nonce = DateTime.UtcNow.ToLongDateString().HashEncoded();
+            
+            if (_editorInitialized)
+                await JS.InvokeVoidAsync("window.setEditorCode", cmdModel?.Command?.Payload?.Exec?.Code);
         }
     }
 

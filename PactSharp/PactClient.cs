@@ -257,8 +257,6 @@ public class PactClient
     {
         var ret = new PactCommand();
         
-        var cmdEscaped = JsonSerializer.Serialize(cmd, PactJsonOptions);
-
         ret.Command = cmd;
         ret.Signatures = signatures ?? Array.Empty<PactSignature>();
         ret.UpdateHash();
