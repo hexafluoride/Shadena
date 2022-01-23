@@ -71,10 +71,75 @@ a, .btn-link {
     animation: fadein 0.35s;
     animation-fill-mode: forwards;
     opacity: 0.35;
+    pointer-events: none;
 }
 
 .loadingQuick {
     opacity: 0.35;
+}
+
+.page-loading {
+    background-color: black;
+    animation: opacity-animation-35 1s;
+    animation-fill-mode: both;
+    z-index: 8999;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+@keyframes opacity-animation-35 {
+    from { opacity: 0; }
+    50%  { opacity: 0; }
+    to   { opacity: 0.35; }
+}
+
+@keyframes opacity-animation-100 {
+    from { opacity: 0; }
+    50%  { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.page-loading > * {
+    opacity: 1;
+}
+
+.loading-content {
+    animation: opacity-animation-100 1s;
+    animation-fill-mode: both;
+    color: #eaeaea;
+    text-align: center;
+    font-size: x-large;
+    position: fixed;
+    left: 0;
+    top: 25vh;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+}
+
+.loading-caption {
+    padding: 15px;
+    background-color:#00000060;
+    max-width: 75%;
+    width: fit-content;
+    border-radius: 10px;
+    border: 0 solid #00000060;
+    position: fixed;
+    transform: translateX(-50%)!important;
+    left: 50%;
+}
+
+.address-display {
+    font-family: monospace;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
+.hide {
+    display: none;
 }
 
 @keyframes fadein {

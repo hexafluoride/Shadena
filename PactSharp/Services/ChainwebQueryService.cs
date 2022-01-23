@@ -16,10 +16,6 @@ public class ChainwebQueryService : IChainwebQueryService
         _cache = cache;
     }
 
-    public async Task Initialize()
-    {
-    }
-
     private async Task SaveCache()
     {
         await _cache.Flush();
@@ -28,6 +24,9 @@ public class ChainwebQueryService : IChainwebQueryService
     public async Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string chain, string[] modules,
         AccountIdentifier[] accounts, bool ignoreCache = false)
     {
+        if (!accounts.Any())
+            return Array.Empty<FungibleV2Account>();
+        
         var moduleMetadata = await GetModuleMetadataAsync(chain, modules);
         var modulesValidForChain = modules.Select(module =>
                 new {Module = module, Metadata = moduleMetadata.First(m => m.Name == module)})
@@ -113,7 +112,6 @@ public class ChainwebQueryService : IChainwebQueryService
 
     public async Task<IEnumerable<FungibleV2Account>> GetAccountDetailsAsync(string[] modules, AccountIdentifier[] accounts, bool ignoreCache = false)
     {
-        await ForAllChains(chain => GetModuleMetadataAsync(chain, modules));
         return (await ForAllChains(chain => GetAccountDetailsAsync(chain, modules, accounts, ignoreCache)))
             .SelectMany(t => t);
     }
@@ -258,5 +256,4 @@ public interface IChainwebQueryService
     Task<IEnumerable<PactModuleMetadata>> GetModuleMetadataAsync(string chain, string[] modules);
     Task<PactModuleMetadata> GetModuleMetadataAsync(string chain, string module);
     Task<bool> ModuleExistsAsync(string chain, string module);
-    Task Initialize();
 }

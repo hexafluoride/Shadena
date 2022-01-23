@@ -12,4 +12,6 @@ public static class Utility
 
     public static string HashEncoded(this ReadOnlySpan<byte> data) =>
         WebEncoders.Base64UrlEncode(Blake2b.ComputeHash(32, data));
+
+    public static async Task YieldToBrowser() => await Task.Delay(1); // yeah, seriously
 }

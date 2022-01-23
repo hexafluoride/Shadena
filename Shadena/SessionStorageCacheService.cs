@@ -107,6 +107,8 @@ public class SessionStorageCacheService : ICacheService
 
     public async Task<bool> Flush()
     {
+        int flushed = 0;
+        
         foreach (var pair in _buffer)
         {
             var item = pair.Value;
@@ -114,6 +116,10 @@ public class SessionStorageCacheService : ICacheService
                 continue;
 
             await _localStorage.SetItemAsync(item.PrefixedKey, item);
+            item.Dirty = false;
+
+            if (flushed++ % 10 == 0)
+                await Utility.YieldToBrowser();
         }
 
         return true;

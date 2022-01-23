@@ -17,7 +17,7 @@
 <TableTemplate Items="@Signers" Context="signer" >
     <RawRowTemplate>
         <tr>
-            <td class="align-middle text-wrap font-monospace">@signer.PubKey</td>
+            <td class="align-middle text-wrap address-display">@signer.PubKey</td>
             <td class="col-2">
                 <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveSigner(signer))">
                     <span class="oi oi-minus" aria-hidden="true"></span> Remove

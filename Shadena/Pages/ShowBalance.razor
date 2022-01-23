@@ -9,14 +9,31 @@
 @inject IAccountsManager _accountsManager
 @inject IChainwebQueryService _chainwebQueryService
 @inject ISettingsService _settingsService
+@inject ICacheService _cacheService 
 @inject NavigationManager _navigationManager
+
+<div class="@(_loading ? "loading-content" : "hide")">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="loading-caption">
+        @(_moduleCaching ? $"Please wait while we cache module metadata... ({_metadataProgress}/{_metadataTotal})" : $"Loading... ({_loadingProgress}/{_loadingTotal})")
+    </p>
+</div>
+<div class="@(_loading ? "page-loading" : "")">
+</div>
 
 <div class="container @(_loading ? "loading" : "")" style="">
     
     <button class="btn btn-success" type="button" @onclick="@(e => RefreshBalance(true))"><span class="oi oi-reload"></span> Refresh</button>
-    <NavLink class="btn btn-primary" href="ManageAccounts">
+    <NavLink class="btn btn-primary" href="Accounts">
         <span class="oi oi-people" aria-hidden="true"></span> Manage accounts
     </NavLink>
+    
+    @if (!AccountList.Any())
+    {
+        <p>No accounts found.</p>
+    }
     
     @foreach (var account in AccountList.Keys)
     {
@@ -29,17 +46,26 @@
 
     private string[] _tokens = Array.Empty<string>();
     bool _loading;
+    bool _moduleCaching;
+
+    int _metadataProgress;
+    int _metadataTotal;
+
+    int _loadingProgress;
+    int _loadingTotal;
     
     protected override async Task OnInitializedAsync()
     {
         _navigationManager.LocationChanged += HandleLocationChanged;
-        await _chainwebQueryService.Initialize();
         await RefreshBalance();
     }
 
     private async Task RefreshBalance(bool ignoreCache = false)
     {
         _loading = true;
+        _loadingProgress = 0;
+        _loadingTotal = _pactClient.RecognizedChains.Count;
+        
         StateHasChanged();
         
         var settings = await _settingsService.GetSettingsAsync();
@@ -56,13 +82,50 @@
 
         StateHasChanged();
 
-        var accountsFetched = await _chainwebQueryService.GetAccountDetailsAsync(_tokens, accountsList, ignoreCache);
-
-        foreach (var account in accountsFetched)
-            AccountList[account.Account].Add(account);
+        var modulesNeeded = _pactClient.RecognizedChains
+            .SelectMany(chain => 
+                _tokens.Select(token => 
+                    new
+                    {
+                        Token = token, 
+                        Chain = chain, 
+                        CacheId = PactModuleMetadata.GetCacheKey(_pactClient.NetworkId, chain, token)
+                    })).ToArray();
         
-        StateHasChanged();
+        var modulesCached = modulesNeeded.ToDictionary(c => (c.Chain, c.Token), c => _cacheService.HasItem(c.CacheId));
+
+        _metadataTotal = modulesNeeded.Length;
+        _metadataProgress = modulesCached.Count(c => c.Value);
+        _moduleCaching = _metadataProgress != _metadataTotal;
+
+        foreach (var chain in _pactClient.RecognizedChains)
+        {
+            if (_tokens.Any(token => !modulesCached[(chain, token)]))
+            {
+                await _chainwebQueryService.GetModuleMetadataAsync(chain, _tokens);
+            }
+
+            foreach (var token in _tokens)
+            {
+                if (!modulesCached[(chain, token)])
+                {
+                    modulesCached[(chain, token)] = true;
+                    _metadataProgress++;
+                }
+            }
+            
+            var accountsFetched = await _chainwebQueryService.GetAccountDetailsAsync(chain, _tokens, accountsList, ignoreCache);
+
+            foreach (var account in accountsFetched)
+                AccountList[account.Account].Add(account);
+
+            _loadingProgress++;
+            StateHasChanged();
+            await Task.Delay(1);
+        }
+
         _loading = false;
+        _moduleCaching = false;
     }
     
     private async void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
