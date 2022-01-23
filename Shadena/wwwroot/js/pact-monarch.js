@@ -10,41 +10,41 @@ window.pactLanguageSpec = {
   ],
 
   keywords: [
-    'case',
-    'do',
-    'let',
-    'loop',
-    'if',
-    'else',
-    'when',
-    'cons',
-    'car',
-    'cdr',
-    'cond',
-    'lambda',
-    'lambda*',
-    'syntax-rules',
-    'format',
-    'set!',
-    'quote',
-    'eval',
-    'append',
-    'list',
-    'list?',
-    'member?',
-    'load',
-    'namespace',
-    'map',
-    'try'
+      'case',
+      'do',
+      'let',
+      'loop',
+      'if',
+      'else',
+      'when',
+      'cons',
+      'car',
+      'cdr',
+      'cond',
+      'lambda',
+      'lambda*',
+      'syntax-rules',
+      'format',
+      'set!',
+      'quote',
+      'eval',
+      'append',
+      'list',
+      'list?',
+      'member?',
+      'load',
+      'namespace',
+      'map',
+      'try'
   ],
 
   types: [
-    'integer', 'string', 'object', 'decimal'
+    'integer', 'string', 'object', 'decimal', 'guard', 'bool'
   ],
 
-  constants: ['#t', '#f'],
+  constants: ['true', 'false'],
 
-  operators: ['eq?', 'eqv?', 'equal?', 'and', 'or', 'not', 'null?'],
+  operators: ['eq?', 'eqv?', 'equal?', 'and', 'or', 'not', 'null?', '=', '!=', '<', '<=', '>', '>='],
 
   tokenizer: {
     root: [
@@ -56,7 +56,7 @@ window.pactLanguageSpec = {
 { include: '@strings' },
 
 
-[/(module)(\{)([0-9a-zA-Z\-]+)(\})/, ['type', 'type', 'type.identifier', 'type']],
+[/(module|object)(\{)([0-9a-zA-Z\-]+)(\})/, ['type', 'white', 'type.identifier', 'white']],
 
 // [
 // 	/[a-zA-Z_#][a-zA-Z0-9_\-\?\!\*]*/,
