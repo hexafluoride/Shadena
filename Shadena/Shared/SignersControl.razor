@@ -28,7 +28,7 @@
             <td>
                 <div class="container-fluid">
                     <div class="input-group">
-                        <input type="text" class="form-control" name="signer-capability" placeholder="(coin.GAS)" @bind="newCapabilityContents"/>
+                        <input type="text" class="form-control" name="signer-capability" placeholder="(free.example.CAPABILITY 'arg1 'arg2 3.0)" @bind="newCapabilityContents"/>
                         <button class="btn btn-sm btn-outline-primary" type="button" @onclick="@(e => AddCapability(signer))"><span class="oi oi-plus" aria-hidden="true"></span> Add capability</button>
                     </div>
                     <TableTemplate Items="@signer.Capabilities" Context="capability" Classes="table-sm table-secondary">

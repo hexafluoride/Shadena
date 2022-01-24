@@ -10,10 +10,25 @@
 
 <div class="container-fluid @(_loading ? "loading" : "")">
     <div class="row row-cols-auto align-content-center">
-        <div class="col">
-            <small>REQUEST KEY</small>
-            <pre>@_targetRequestKey</pre>
-        </div>
+        @if (!string.IsNullOrWhiteSpace(_targetRequestKey))
+        {
+            <div class="col">
+                <small class="me-1">REQUEST KEY</small>
+                @if (_commandResponse == null)
+                {
+                    <span class="badge bg-secondary">Unknown</span>
+                }
+                else if (_commandResponse.Result.Status != "success")
+                {
+                    <span class="badge bg-danger">Failure</span>
+                }
+                else
+                {
+                    <span class="badge bg-success">Success</span>
+                }
+                <pre>@_targetRequestKey</pre>
+            </div>
+        }
         @if (_commandResponse != null)
         {
             <div class="col">
