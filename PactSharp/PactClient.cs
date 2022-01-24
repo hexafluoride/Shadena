@@ -24,6 +24,7 @@ public class PactClient
 
     public int DefaultGasLimit { get; set; } = 1500;
     public decimal DefaultGasPrice { get; set; } = 0.00000001m;
+    public Network CurrentNetwork { get; set; }
     
     public static JsonSerializerOptions PactJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -47,6 +48,7 @@ public class PactClient
 
     public void SetNetwork(Network network)
     {
+        CurrentNetwork = network;
         switch (network)
         {
             case Network.Mainnet:

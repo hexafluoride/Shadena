@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+﻿@using PactSharp
+@inherits LayoutComponentBase
+
+@inject PactClient _pactClient
 
 <div class="page">
     <div class="sidebar">
@@ -6,7 +9,9 @@
     </div>
 
     <main>
+
         <div class="top-row px-4">
+            <span>Connected to <a class="ms-0" href="/Settings">@_pactClient.CurrentNetwork</a></span>
             <a href="https://github.com/hexafluoride/Shadena" target="_blank"><i class="fab fa-github"></i> GitHub</a>
         </div>
 

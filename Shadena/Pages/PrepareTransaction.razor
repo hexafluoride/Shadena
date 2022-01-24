@@ -259,7 +259,6 @@
 
     PactCommand _sentCommand;
 
-    bool _txImported = false;
     bool _editorInitialized = false;
 
     ImportModel Import { get; set; } = new();
@@ -273,7 +272,7 @@
             editContext = new EditContext(cmdModel);
             editContext.OnFieldChanged += FieldChanged;
             
-            await JS.InvokeVoidAsync("window.initializeEditor", _txImported ? cmdModel?.Command?.Payload?.Exec?.Code : null);
+            await JS.InvokeVoidAsync("window.initializeEditor");
             await JS.InvokeVoidAsync("window.initTooltips");
 
             _editorInitialized = true;
@@ -286,13 +285,12 @@
     {
         if (!string.IsNullOrWhiteSpace(requestKey) && !string.IsNullOrWhiteSpace(chainId))
         {
-            _txImported = true;
-            cmdModel = await _chainwebQueryService.FetchTransactionAsync(chainId, requestKey);
-
+            Import.RequestKey = requestKey;
+            Import.ChainId = chainId;
+            await ImportAsync(ImportType.RequestKey);
         }
         else
         {
-            _txImported = false;
             cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
         }
         
@@ -309,7 +307,6 @@
 
     private async Task<PactCommand> RecoverFromJson(string json)
     {
-        Console.WriteLine($"Importing from json: {json}");
         var parsedObject = JsonNode.Parse(json).AsObject();
 
         if (parsedObject.ContainsKey("cmds"))
@@ -350,14 +347,21 @@
                 cmdModel = _pactClient.BuildCommand(PactCmd.YamlDeserializer.Deserialize<PactCmd>(Import.Yaml));
                 break;
         }
+        
+        if (cmdModel != null && cmdModel.Command.NetworkId != _pactClient.NetworkId)
+        {
+            await JS.InvokeVoidAsync("alert", $"This transaction is for network \"{cmdModel.Command.NetworkId}\", but you are on network \"{_pactClient.NetworkId}\". Please change your active network in the Settings page and reload Shadena.");
+            cmdModel = null;
+        }
 
         if (cmdModel == null)
         {
-            Console.WriteLine($"Import failed.");
+            await JS.InvokeVoidAsync("alert", "Import failed.");
             cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
         }
         else
         {
+            
             if (string.IsNullOrWhiteSpace(cmdModel.Command.Nonce))
                 cmdModel.Command.Nonce = DateTime.UtcNow.ToLongDateString().HashEncoded();
             

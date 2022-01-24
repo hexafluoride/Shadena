@@ -121,10 +121,14 @@ public class ChainwebQueryService : IChainwebQueryService
             response.RequestKey);
 
     public async Task<PactCommand> FetchTransactionAsync(string chain, string requestKey) =>
-        await FetchTransactionAsync(chain, (await PactClient.PollRequestAsync(chain, requestKey)).Metadata.BlockHash, requestKey);
+        await FetchTransactionAsync(chain, (await PactClient.PollRequestAsync(chain, requestKey))?.Metadata?.BlockHash, requestKey);
     
     public async Task<PactCommand> FetchTransactionAsync(string chain, string blockHash, string requestKey)
     {
+        if (string.IsNullOrWhiteSpace(chain) || string.IsNullOrWhiteSpace(blockHash) ||
+            string.IsNullOrWhiteSpace(requestKey))
+            return null;
+        
         ChainwebBlockPayload blockPayload = await FetchBlockPayloadAsync(chain, blockHash);
         if (blockPayload == null)
             return null;

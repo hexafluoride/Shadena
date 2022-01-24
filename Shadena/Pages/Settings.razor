@@ -1,12 +1,12 @@
 @page "/Settings"
-@using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Components
 @using PactSharp
 @using PactSharp.Services
 @using PactSharp.Types
 
-@inject PactClient pactClient
-@inject ISettingsService settingsManager
+@inject PactClient _pactClient
+@inject ISettingsService _settingsManager
+@inject NavigationManager _navigationManager
 
 <div class="container">
 <h2>Settings</h2>
@@ -17,7 +17,6 @@
     
     <h4>Network settings</h4>
     <div class="mb-3">
-        @* <label class="form-label">Network</label> *@
         <InputSelect class="form-select" @bind-Value="settingsModel.Network">
             <option value="@Network.Mainnet">Mainnet</option>
             <option value="@Network.Testnet">Testnet</option>
@@ -71,17 +70,18 @@
 
     protected async Task SaveSettings()
     {
-        await settingsManager.SaveSettingsAsync(settingsModel);
+        await _settingsManager.SaveSettingsAsync(settingsModel);
         Console.WriteLine("Saved settings");
         
-        pactClient.SetNetwork(settingsModel.Network);
+        _pactClient.SetNetwork(settingsModel.Network);
         
         await LoadSettings();
+        _navigationManager.NavigateTo(_navigationManager.Uri);
     }
 
     protected async Task LoadSettings()
     {
-        settingsModel = await settingsManager.GetSettingsAsync();
+        settingsModel = await _settingsManager.GetSettingsAsync();
         StateHasChanged();
     }
     
