@@ -92,6 +92,12 @@
     {
         <div class="row">
             <div class="col">
+                <small>ERROR TYPE</small>
+                <pre>@(_commandResponse.Result.Error.Type)</pre>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
                 <small>ERROR MESSAGE</small>
                 <textarea class="form-control" readonly>@(_commandResponse.Result.Error.Message)</textarea>
             </div>
@@ -100,12 +106,6 @@
             <div class="col">
                 <small>STACK TRACE</small>
                 <textarea class="form-control" readonly>@(string.Join('\n', _commandResponse.Result.Error.CallStack))</textarea>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col">
-                <small>ERROR TYPE</small>
-                <pre>@(_commandResponse.Result.Error.Type)</pre>
             </div>
         </div>
     }
