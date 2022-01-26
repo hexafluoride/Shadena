@@ -79,12 +79,33 @@
             }
         }
     </div>
-    @if (_commandResponse?.Result != null)
+    @if (_commandResponse?.Result?.Data != null)
     {
         <div class="row">
             <div class="col">
                 <small>RESULT</small>
                 <textarea class="form-control" readonly>@(_commandResponse.Result.Data)</textarea>
+            </div>
+        </div>
+    }
+    @if (_commandResponse?.Result?.Error != null)
+    {
+        <div class="row">
+            <div class="col">
+                <small>ERROR MESSAGE</small>
+                <textarea class="form-control" readonly>@(_commandResponse.Result.Error.Message)</textarea>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>STACK TRACE</small>
+                <textarea class="form-control" readonly>@(string.Join('\n', _commandResponse.Result.Error.CallStack))</textarea>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>ERROR TYPE</small>
+                <pre>@(_commandResponse.Result.Error.Type)</pre>
             </div>
         </div>
     }
@@ -150,20 +171,34 @@
     {
         await base.SetParametersAsync(parameters);
 
+        string nextRequestKey = "";
+        string nextChain = "";
+
         switch (ReferenceType)
         {
             case TransactionReference.PollResponse:
-                _targetRequestKey = Result?.RequestKey;
-                _targetChain = Result?.Metadata?.PublicMetadata?.ChainId ?? "0";
+                nextRequestKey = Result?.RequestKey;
+                nextChain = Result?.Metadata?.PublicMetadata?.ChainId ?? "0";
                 break;
             case TransactionReference.SentCommand:
-                _targetRequestKey = Command?.Hash;
-                _targetChain = Command?.Command.Metadata?.ChainId ?? "0";
+                nextRequestKey = Command?.Hash;
+                nextChain = Command?.Command.Metadata?.ChainId ?? "0";
                 break;
             case TransactionReference.RequestKey:
-                _targetRequestKey = RequestKey;
-                _targetChain = ChainId;
+                nextRequestKey = RequestKey;
+                nextChain = ChainId;
                 break;
+        }
+
+        if (_targetRequestKey != nextRequestKey || _targetChain != nextChain)
+        {
+            _targetRequestKey = nextRequestKey;
+            _targetChain = nextChain;
+            _command = null;
+            _commandResponse = null;
+            _timer?.Stop();
+            _timer?.Close();
+            _timer = null;
         }
 
         if (string.IsNullOrWhiteSpace(_targetRequestKey))
