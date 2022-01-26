@@ -5,34 +5,72 @@ using System.Text;
 
 namespace PactSharp;
 
+public readonly struct TextReference
+{
+    public ReadOnlySpan<char> Span => Backing.Span;
+    public int Length => Backing.Length;
+    public ReadOnlyMemory<char> Backing { get; }
+    public int Offset { get; }
+    public TextReference(ReadOnlyMemory<char> backing)
+    {
+        Backing = backing;
+        Offset = 0;
+    }
+    
+    public TextReference(ReadOnlyMemory<char> newBacking, int offset)
+    {
+        Backing = newBacking;
+        Offset = offset;
+    }
+    
+    public TextReference Slice(int start, int length)
+    {
+        return new TextReference(Backing.Slice(start, length), Offset + start);
+    }
+
+    public TextReference Slice(int start)
+    {
+        return new TextReference(Backing.Slice(start), Offset + start);
+    }
+}
+
 public class PactExpression
 {
-    public ReadOnlyMemory<char> Backing { get; set; }
+    public int Index { get; set; }
+    public TextReference Backing { get; set; }
     public ReadOnlySpan<char> Span => Backing.Span;
-    public string Contents => Backing.ToString();
-    
+    public string Contents => Span.ToString();
+    public PactExpression Parent { get; set; }
     public ExpressionType Type { get; set; }
 
     internal PactExpression()
     {
     }
 
-    public PactExpression(ReadOnlyMemory<char> backing)
+    public PactExpression(TextReference reference)
     {
-        Backing = backing;
-    }
-    public PactExpression(string document, int start, int length)
-    {
-        Backing = document.AsMemory(start, length);
+        Backing = reference;
     }
 
-    public static IEnumerable<PactExpression> ConsumeAll(ReadOnlyMemory<char> memory)
+    public PactExpression(TextReference reference, PactExpression parent) : this(reference)
+    {
+        Parent = parent;
+    }
+
+    public virtual IEnumerable<PactExpression> EnumerateChildren()
+    {
+        return Enumerable.Empty<PactExpression>();
+    }
+
+    public static IEnumerable<PactExpression> ConsumeAll(TextReference reference, PactExpression parent = null)
     {
         var expr = default(PactExpression);
+        var backing = reference;
+        //var backing = new TextReference(memory);
 
         do
         {
-            (expr, memory) = PactExpression.Consume(memory);
+            (expr, backing) = PactExpression.Consume(backing, parent);
             if (expr != null && (expr.Type != ExpressionType.Unknown || expr.Backing.Length > 0))
             {
                 yield return expr;
@@ -40,7 +78,60 @@ public class PactExpression
         } while (expr != default);
     }
 
-    public static (PactExpression, ReadOnlyMemory<char>) Consume(ReadOnlyMemory<char> memory)
+    public IEnumerable<PactExpression> TraverseTree()
+    {
+        var toVisit = new List<PactExpression>() {this};
+
+        while (toVisit.Any())
+        {
+            var expr = toVisit[0];
+            toVisit.RemoveAt(0);
+
+            yield return expr;
+            
+            //Console.Write($"Visiting expression at {expr.Backing.Offset}: ");
+
+            foreach (var child in expr.EnumerateChildren())
+            {
+                toVisit.Add(child);
+                //Console.Write($"{child.Backing.Offset}, ");
+                //yield return child;
+            }
+
+            //Console.WriteLine();
+        }
+    }
+
+    public IEnumerable<PactExpression> EnumerateLeaves()
+    {
+        var toVisit = new List<PactExpression>() {this};
+
+        while (toVisit.Any())
+        {
+            var expr = toVisit[0];
+            toVisit.RemoveAt(0);
+
+            var children = expr.EnumerateChildren().ToList();
+            if (!children.Any())
+                yield return expr;
+
+            toVisit.AddRange(children);
+        }
+    }
+
+    public IEnumerable<PactExpression> TraverseParents()
+    {
+        var node = this;
+        yield return node;
+
+        while (node.Parent != null)
+        {
+            node = node.Parent;
+            yield return node;
+        }
+    }
+
+    public static (PactExpression, TextReference) Consume(TextReference memory, PactExpression parent = null)
     {
         if (memory.Length == 0)
             return (null, memory);
@@ -217,10 +308,11 @@ public class PactExpression
         }
 
         var newBacking = memory.Slice(start, index - start);
+        int followingOffset = newBacking.Offset + newBacking.Length;
 
         if (patchOutSections.Any())
         {
-            var tempStr = newBacking.ToString();
+            var tempStr = span.Slice(start, index - start).ToString();
             var removed = 0;
             foreach (var (pStart, pLength) in patchOutSections)
             {
@@ -230,12 +322,10 @@ public class PactExpression
                 removed += pLength;
             }
 
-            newBacking = tempStr.AsMemory();
+            newBacking = new TextReference(tempStr.AsMemory(), memory.Offset);
         }
 
-        //Console.WriteLine($"Consumed {index - start} characters");
-
-        var expr = new PactExpression(newBacking) {Type = currentType};
+        var expr = new PactExpression(newBacking, parent) {Type = currentType};
 
         switch (currentType)
         {
@@ -250,12 +340,13 @@ public class PactExpression
                 break;
         }
 
-        return (expr, memory.Slice(index));
+        var returnMemory = new TextReference(memory.Backing.Slice(index), followingOffset);
+        return (expr, returnMemory);
     }
 
     public override string ToString()
     {
-        return $"[Expression {Type}: {Contents}]";
+        return $"[Expression {Type} at offset {Backing.Offset}: {Contents}]";
     }
 }
 
@@ -264,29 +355,49 @@ public class TypedIdentifierPactExpression : PactExpression
     public PactExpression Name { get; set; }
     public PactExpression PactType { get; set; }
 
-    internal TypedIdentifierPactExpression(ReadOnlyMemory<char> backing) : base(backing)
-    {
-        
-    }
-    
-    internal TypedIdentifierPactExpression(PactExpression expr) : base(expr.Backing)
+    internal TypedIdentifierPactExpression(TextReference nameBacking, PactExpression parent) : base(nameBacking, parent)
     {
         Type = ExpressionType.TypedIdentifier;
+        Name = new PactExpression(nameBacking, this);
+    }
+    
+    internal TypedIdentifierPactExpression(TextReference nameBacking, TextReference typeBacking, PactExpression parent) : this(nameBacking, parent)
+    {
+        PactType = new PactExpression(typeBacking, this);
     }
 
-    public static TypedIdentifierPactExpression Parse(ReadOnlyMemory<char> memory, ExpressionType identifierType = ExpressionType.Identifier)
+    public override IEnumerable<PactExpression> EnumerateChildren()
     {
-        var str = memory.ToString();
-        var parts = str.Split(':');
+        yield return Name;
+        
+        if (PactType != null)
+            yield return PactType;
+    }
 
-        var ret = new TypedIdentifierPactExpression(memory)
+    public static TypedIdentifierPactExpression Parse(TextReference backing, PactExpression parent, ExpressionType identifierType = ExpressionType.Identifier)
+    {
+        var span = backing.Span;
+
+        var colonIndex = -1;
+        for (int i = 0; i < backing.Length; i++)
         {
-            Name = new PactExpression(parts[0].AsMemory()) {Type = identifierType}
-        };
+            if (span[i] == ':')
+            {
+                colonIndex = i;
+                break;
+            }
+        }
 
-        if (parts.Length > 1)
-            ret.PactType = new PactExpression(string.Join(':', parts.Skip(1)).AsMemory()) {Type = ExpressionType.TypeIdentifier};
-        return ret;
+        if (colonIndex == -1)
+        {
+            return new TypedIdentifierPactExpression(backing, parent);
+        }
+        else
+        {
+            var nameBacking = backing.Slice(0, colonIndex);
+            var typeBacking = backing.Slice(colonIndex + 1);
+            return new TypedIdentifierPactExpression(nameBacking, typeBacking, parent);
+        }
     }
 
     public override string ToString()
@@ -296,7 +407,7 @@ public class TypedIdentifierPactExpression : PactExpression
         if (PactType == null)
             return $"Untyped {typeHuman} identifier \"{Name.Contents}\"";
 
-        return $"{typeHuman} identifier \"{Name.Contents}\" with type {PactType.Contents}";
+        return $"{typeHuman} identifier \"{Name.Contents}\" at offset {Backing.Offset} with type {PactType.Contents}";
     }
 }
 
@@ -307,6 +418,11 @@ public class ArgumentListPactExpression : PactExpression
     internal ArgumentListPactExpression(PactExpression expr) : base(expr.Backing)
     {
         Type = ExpressionType.ArgumentList;
+    }
+    
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        return Children;
     }
 
     public static ArgumentListPactExpression Parse(PactExpression root)
@@ -335,7 +451,7 @@ public class ArgumentListPactExpression : PactExpression
             if (length == 0)
                 continue;
                 
-            parts.Add(TypedIdentifierPactExpression.Parse(debracedMemory.Slice(0, length), ExpressionType.ArgumentIdentifier));
+            parts.Add(TypedIdentifierPactExpression.Parse(debracedMemory.Slice(0, length), ret, ExpressionType.ArgumentIdentifier));
 
             debracedSpan = debracedSpan.Slice(length);
             debracedMemory = debracedMemory.Slice(length);
@@ -347,7 +463,7 @@ public class ArgumentListPactExpression : PactExpression
 
     public override string ToString()
     {
-        return $"[{Children.Length} arguments: [{string.Join(", ", Children.Select(c => c.ToString()))}]]";
+        return $"[{Children.Length} arguments at offset {Backing.Offset}: [{string.Join(", ", Children.Select(c => c.ToString()))}]]";
     }
 }
 
@@ -355,17 +471,23 @@ public class BodyPactExpression : PactExpression
 {
     public PactExpression[] Children { get; set; }
     
-    internal BodyPactExpression(ReadOnlyMemory<char> backing)
+    public BodyPactExpression(TextReference backing, PactExpression parent)
     {
         Type = ExpressionType.Body;
 
         Backing = backing;
-        Children = ConsumeAll(backing).ToArray();
+        Parent = parent;
+        Children = ConsumeAll(backing, this).ToArray();
+    }
+
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        return Children;
     }
 
     public override string ToString()
     {
-        return $"[Expression body with {Children.Length} statements: [{string.Join(", \n", Children.Select(c => c.ToString()))}]]";
+        return $"[Expression body at offset {Backing.Offset} with {Children.Length} statements: [{string.Join(", \n", Children.Select(c => c.ToString()))}]]";
     }
 }
 
@@ -375,6 +497,11 @@ public class BodiedPactExpression : PactExpression
     internal BodiedPactExpression(PactExpression root, BodyPactExpression body) : base(root.Backing)
     {
         Body = body;
+    }
+
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        yield return Body;
     }
 
     internal BodiedPactExpression(PactExpression root) : base(root.Backing)
@@ -394,6 +521,7 @@ public class FunctionPactExpression : BodiedPactExpression
     {
         Backing = root.Backing;
         Type = ExpressionType.Function;
+        Parent = root.Parent;
 
         var rest = root.Backing.Slice(1, root.Backing.Length - 2);
         rest = rest.Slice("defun".Length);
@@ -402,19 +530,19 @@ public class FunctionPactExpression : BodiedPactExpression
         PactExpression methodId = null, argList = null;
         
         while (methodId == null)
-            (methodId, nextRest) = Consume(nextRest);
+            (methodId, nextRest) = Consume(nextRest, this);
         
         while (argList == null)
-            (argList, nextRest) = Consume(nextRest);
+            (argList, nextRest) = Consume(nextRest, this);
         
-        MethodIdentifier = TypedIdentifierPactExpression.Parse(methodId.Backing, ExpressionType.MethodIdentifier);
+        MethodIdentifier = TypedIdentifierPactExpression.Parse(methodId.Backing,this, ExpressionType.MethodIdentifier);
         Arguments = ArgumentListPactExpression.Parse(argList);
         
         var bodyStart = nextRest;
 
-        (var maybeModel, nextRest) = Consume(nextRest);
+        (var maybeModel, nextRest) = Consume(nextRest, this);
         while (maybeModel == null)
-            (maybeModel, nextRest) = Consume(nextRest);
+            (maybeModel, nextRest) = Consume(nextRest, this);
         
         if (maybeModel.Type == ExpressionType.Model)
         {
@@ -427,11 +555,26 @@ public class FunctionPactExpression : BodiedPactExpression
             bodyStart = nextRest;
         }
 
-        Body = new BodyPactExpression(bodyStart);
+        Body = new BodyPactExpression(bodyStart, this);
     }
+
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        yield return MethodIdentifier;
+        yield return Arguments;
+        if (Model != null)
+            yield return Model;
+
+        if (Documentation != null)
+            yield return Documentation;
+
+        if (Body != null)
+            yield return Body;
+    }
+
     public override string ToString()
     {
-        return $"[Function {MethodIdentifier} with arguments {Arguments} and body: [{Body}]]";
+        return $"[Function at offset {Backing.Offset} {MethodIdentifier} with arguments {Arguments} and body: [{Body}]]";
     }
 }
 
@@ -443,6 +586,7 @@ public class ModulePactExpression : BodiedPactExpression
     
     internal ModulePactExpression(PactExpression root) : base(root)
     {
+        Parent = root.Parent;
         Backing = root.Backing;
         Type = ExpressionType.Module;
 
@@ -451,49 +595,68 @@ public class ModulePactExpression : BodiedPactExpression
         
         var nextRest = rest;
         while (ModuleIdentifier == null)
-            (ModuleIdentifier, nextRest) = Consume(nextRest);
+            (ModuleIdentifier, nextRest) = Consume(nextRest, this);
         while (Governance == null)
-            (Governance, nextRest) = Consume(nextRest);
-        
+            (Governance, nextRest) = Consume(nextRest, this);
+
+        ModuleIdentifier.Parent = this;
         ModuleIdentifier.Type = ExpressionType.ModuleIdentifier;
+        Governance.Parent = this;
         Governance.Type = ExpressionType.CapabilityIdentifier;
 
         var bodyStart = nextRest;
 
-        (var maybeModel, nextRest) = Consume(nextRest);
+        (var maybeModel, nextRest) = Consume(nextRest, this);
         while (maybeModel == null)
-            (maybeModel, nextRest) = Consume(nextRest);
+            (maybeModel, nextRest) = Consume(nextRest, this);
         
         if (maybeModel.Type == ExpressionType.Model)
         {
             Model = maybeModel;
+            Model.Parent = this;
             bodyStart = nextRest;
         }
 
-        Body = new BodyPactExpression(bodyStart);
+        Body = new BodyPactExpression(bodyStart, this);
     }
+    
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        yield return ModuleIdentifier;
+        if (Model != null)
+            yield return Model;
+
+        if (Governance != null)
+            yield return Governance;
+
+        if (Body != null)
+            yield return Body;
+    }
+
+    
     public override string ToString()
     {
-        return $"[Module {ModuleIdentifier.Contents} with governance capability {Governance.Contents} and body: [{Body}]]";
+        return $"[Module {ModuleIdentifier.Contents} at offset {Backing.Offset} with governance capability {Governance.Contents} and body: [{Body}]]";
     }
 }
 
 public class CallLikePactExpression : PactExpression
 {
-    public string First { get; set; }
+    public PactExpression First { get; set; }
     public PactExpression[] Arguments { get; set; } = Array.Empty<PactExpression>();
     
-    public CallLikePactExpression(string document, int start, int length) : base(document, start, length)
-    {
-        Type = ExpressionType.CallLike;
-        
-        if (Backing.Span[0] != '(' || Backing.Span[Backing.Length - 1] != ')')
-            throw new InvalidDataException();
-    }
-
     internal CallLikePactExpression(PactExpression expr) : base(expr.Backing)
     {
+        Parent = expr.Parent;
         Type = ExpressionType.CallLike;
+    }
+    
+    public override IEnumerable<PactExpression> EnumerateChildren()
+    {
+        yield return First;
+        if (Arguments != null)
+            foreach (var arg in Arguments)
+                yield return arg;
     }
 
     public static PactExpression Parse(PactExpression root)
@@ -518,37 +681,39 @@ public class CallLikePactExpression : PactExpression
             }
         }
 
+        var firstRef = debracedMemory.Slice(0, first.Length);
+        var firstStr = firstRef.Span.ToString();
         var rest = debracedMemory.Slice(first.Length);
 
-        ret.First = first.ToString();
+        ret.First = new PactExpression(firstRef, ret) { Type = ExpressionType.Identifier };
         if (rest.Length > 1)
         {
-            if (ret.First == "module")
+            if (firstStr == "module")
             {
                 return new ModulePactExpression(root);
             }
-            else if (ret.First == "defun")
+            else if (firstStr == "defun")
             {
                 return new FunctionPactExpression(root);
             }
             else
             {
-                var argsList = PactExpression.ConsumeAll(rest).ToList();
-                if (ret.First == "defconst")
+                var argsList = PactExpression.ConsumeAll(rest, ret).ToList();
+                if (firstStr == "defconst")
                 {
                     argsList[0] =
-                        TypedIdentifierPactExpression.Parse(argsList[0].Backing, ExpressionType.ConstantIdentifier);
+                        TypedIdentifierPactExpression.Parse(argsList[0].Backing, ret, ExpressionType.ConstantIdentifier);
                 }
 
-                if (ret.First == "defun" || ret.First == "defcap")
+                if (firstStr == "defun" || firstStr == "defcap")
                 {
-                    if (ret.First == "defun")
+                    if (firstStr == "defun")
                         argsList[0] =
-                            TypedIdentifierPactExpression.Parse(argsList[0].Backing, ExpressionType.MethodIdentifier);
+                            TypedIdentifierPactExpression.Parse(argsList[0].Backing, ret, ExpressionType.MethodIdentifier);
                     else
                     {
                         argsList[0] =
-                            TypedIdentifierPactExpression.Parse(argsList[0].Backing,
+                            TypedIdentifierPactExpression.Parse(argsList[0].Backing, ret,
                                 ExpressionType.CapabilityIdentifier);
                     }
 
@@ -571,7 +736,7 @@ public class CallLikePactExpression : PactExpression
     
     public override string ToString()
     {
-        return $"[Call to {First} with args [{string.Join(", ", Arguments.Select(expr => expr.ToString()))}]]";
+        return $"[Call at offset {Backing.Offset} to {First} with args [{string.Join(", ", Arguments.Select(expr => expr.ToString()))}]]";
     }
 }
 
