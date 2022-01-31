@@ -27,6 +27,7 @@
     <script src="dev/vs/loader.js"></script>
     <script src="js/pact-monarch.js"></script>
     <script src="js/data-entry-helper.js"></script>
+    <script src="js/suggestion-helper.js"></script>
     <script>
         window.initTooltips = function() {
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -81,6 +82,40 @@
                 });
                 
                 monaco.languages.setMonarchTokensProvider('pact', window.pactLanguageSpec);
+                monaco.languages.registerSignatureHelpProvider('pact', window.signatureHelper);
+                monaco.languages.registerCompletionItemProvider('pact', {
+                    provideCompletionItems: async function (model, position) {
+                        if (!window.completionAttached)
+                            return [];
+                        
+                        const symbols = await window.fetchSymbolsAtLocation(position);
+
+                        var word = model.getWordUntilPosition(position);
+                        var range = {
+                            startLineNumber: position.lineNumber,
+                            endLineNumber: position.lineNumber,
+                            startColumn: word.startColumn,
+                            endColumn: word.endColumn
+                        };
+                        
+                        let builtSuggestions = [];
+
+                        for (const symbol of symbols) {
+                            builtSuggestions.push({
+                                label: symbol.name,
+                                kind: symbol.type == 'Function' ? monaco.languages.CompletionItemKind.Function : symbol.type == 'Variable' ? monaco.languages.CompletionItemKind.Variable : monaco.languages.CompletionItemKind.Value,
+                                documentation: symbol.description || '',
+                                insertText: symbol.name,
+                                range: range,
+                                detail: symbol.pactType
+                            });
+                        }
+                        
+                        return {
+                            suggestions: builtSuggestions
+                        };
+                    }
+                });
                 
                 const startText = code || window.localStorage.getItem("lastText") || pactExample;
                 
