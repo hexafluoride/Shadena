@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -217,6 +218,18 @@ public class PactClient
         {
             return null;
         }
+    }
+
+    public async Task<string> ObtainSpvAsync(string sourceChain, string targetChainId, string requestKey)
+    {
+        var req = new
+        {
+            targetChainId,
+            requestKey
+        };
+
+        var resp = await _http.PostAsJsonAsync(GetApiUrl($"/pact/spv", sourceChain), req, PactJsonOptions);
+        return (await resp.Content.ReadAsStringAsync()).Trim('"');
     }
 
     public PactCmd GenerateExecCommand(string chain, string code, object data = null)
