@@ -1,0 +1,443 @@
+@page "/CompleteCrosschain"
+
+@using PactSharp
+@using Microsoft.AspNetCore.Components
+@using PactSharp.Types
+@using System.Text.Json.Nodes
+@using System.Text.Json
+@using System.Timers
+@using PactSharp.Services
+
+@inject IChainwebQueryService _chainwebQueryService
+@inject IAccountsManager _accountsManager
+@inject PactClient _pactClient
+
+<h3>Complete crosschain transaction</h3>
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <div class="@GetClassForStepId("waitingForInput")">
+                
+                <div class="mb-3">
+                    <label>Chain</label>
+                    <select class="form-select" @bind="@_chainId">
+                        @foreach (var chain in _pactClient.RecognizedChains)
+                        {
+                            <option value="@chain">@chain</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>Request key</label>
+                    <input type="text" class="form-control" placeholder="" aria-label="Request key" @bind="@_requestKey"/>
+                </div>
+                <div class="mb-3">
+                    <button class="btn btn-success" type="button" @onclick="Lookup"><span class="oi oi-magnifying-glass" aria-hidden="true"></span> Query</button>
+                </div>
+            </div>
+            <div class="@GetClassForStepId("continuationLoaded")">
+                <h4>Configure continuation properties</h4>
+                @if ((_cmdModel?.Command?.Payload?.Cont?.Proof?.Length ?? 0) < 200)
+                {
+                    <div class="alert alert-warning" role="alert">
+                        Failed to fetch SPV: <pre>@(_cmdModel?.Command?.Payload?.Cont?.Proof ?? "(no response)")</pre>. Go back and try again after waiting for a while.
+                    </div>
+                }
+                
+                <EditForm EditContext="_editContext">
+                    <DataAnnotationsValidator/>
+                    <ValidationSummary/>
+                    @* *@
+                    @* <div class="mb-3"> *@
+                    @*     <button class="btn btn-success" type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button> *@
+                    @* *@
+                    @* </div> *@
+
+                    <div class="mb-3">
+                        <label>Sender</label>
+                        <InputText class="form-control" list="registered-accounts" @bind-Value="_cmdModel.Command.Metadata.Sender"/>
+
+                        <datalist id="registered-accounts">
+                            @foreach (var account in _accounts)
+                            {
+                                <option value="@account.Name"/>
+                            }
+                        </datalist>
+                    </div>
+                
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col">
+                                <label>Gas limit</label>
+                                <InputNumber class="form-control" placeholder="1500" aria-label="Gas limit" @bind-Value="_cmdModel.Command.Metadata.GasLimit"/>
+                            </div>
+                            <div class="col">
+                                <lable>Gas price</lable>
+                                <InputNumber class="form-control" placeholder="0.00001" aria-label="Gas price" @bind-Value="_cmdModel.Command.Metadata.GasPrice"/>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <div class="mb-3">
+                        <label>Transaction hash
+                            <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="Sign this value. Click to copy into clipboard."></span></label>
+                        <input class="form-control font-monospace" style="cursor:grab;" id="tx-hash" type="text" readonly="readonly" @bind="_cmdModel.Hash" data-bs-toggle="tooltip" data-bs-placement="top" title="Copied!" data-bs-trigger="manual"
+                               onclick="navigator.clipboard.writeText(document.getElementById('tx-hash').value); 
+                           bootstrap.Tooltip.getInstance(document.getElementById('tx-hash')).show();
+                           setTimeout(function () { bootstrap.Tooltip.getInstance(document.getElementById('tx-hash')).hide(); }, 1000);"/>
+                    </div>
+
+                    <div class="mb-3">
+                        <SignaturesControl Transaction="_cmdModel" SignaturesChanged="@(async () => await Synchronize())" @bind-SigningKeypairs="_signingKeypairs"/>
+                    </div>
+                
+                    <a class="btn btn-link" data-bs-toggle="collapse" href="#collapse-advanced-settings" role="button" aria-expanded="false" aria-controls="collapse-advanced-settings">
+                        Edit advanced settings
+                    </a>
+                
+                    <div class="collapse" id="collapse-advanced-settings">
+
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col">
+                                    <label>Time to live</label>
+                                    <InputNumber class="form-control" placeholder="3600" aria-label="Time to live" @bind-Value="_cmdModel.Command.Metadata.Ttl"/>
+                                </div>
+                                <div class="col">
+                                    <lable>Creation time</lable>
+                                    <InputNumber class="form-control" aria-label="Creation time" @bind-Value="_cmdModel.Command.Metadata.CreationTime"/>
+                                </div>
+                            </div>
+                        </div>
+                    
+                        <div class="mb-3">
+                            <h4>Message data</h4>
+                            <TransactionDataControl Transaction="_cmdModel.Command" DataChanged="Synchronize"/>
+                        </div>
+                    </div>
+                    @* <div class="mb-3"> *@
+                    @*     <label>Chain</label> *@
+                    @*     <InputSelect class="form-select" @bind-Value="_cmdModel.Command.Metadata.ChainId"> *@
+                    @*         @foreach (var chain in _pactClient.RecognizedChains) *@
+                    @*         { *@
+                    @*             <option value="@chain">@chain</option> *@
+                    @*         } *@
+                    @*     </InputSelect> *@
+                    @* </div> *@
+                
+                    <div class="mb-3">
+                        <button class="btn btn-primary" type="button" @onclick="PreviousPage"><span class="oi oi-chevron-left" aria-hidden="true"></span> Previous step</button>
+                        <button class="btn btn-success" type="button" disabled=@((_cmdModel?.Command?.Payload?.Cont?.Proof?.Length ?? 0) < 200) @onclick="PreviewTransaction"><span class="oi oi-check" aria-hidden="true"></span> Preview</button>
+                    </div>
+                </EditForm>
+            </div>
+            <div class="@GetClassForStepId("preview")">
+                <h4>Preview transaction</h4>
+                
+                <div class="col">
+                    <small class="me-1">REQUEST KEY</small>
+                    @if (_previewResponse == null)
+                    {
+                        <span class="badge bg-secondary">Unknown</span>
+                    }
+                    else if (_previewResponse.Result.Status != "success")
+                    {
+                        <span class="badge bg-danger">Failure</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">Success</span>
+                    }
+                    <pre>@_previewResponse?.RequestKey</pre>
+                </div>
+                @if (_previewResponse != null)
+                {
+                    <div class="col">
+                        <small>STATUS</small>
+                        <pre>@_previewResponse.Result.Status</pre>
+                    </div>
+                }
+                @if (_previewResponse?.Result?.Error != null)
+                {
+                    <div class="row">
+                        <div class="col">
+                            <small>ERROR TYPE</small>
+                            <pre>@(_previewResponse.Result.Error.Type)</pre>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <small>ERROR MESSAGE</small>
+                            <textarea class="form-control" readonly>@(_previewResponse.Result.Error.Message)</textarea>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <small>STACK TRACE</small>
+                            <textarea class="form-control" readonly>@(string.Join('\n', _previewResponse.Result.Error.CallStack))</textarea>
+                        </div>
+                    </div>
+                }
+                        
+                    <div class="row">
+                        <div class="col">
+                            <small>TRANSACTION JSON</small>
+                            
+                <textarea class="form-control code-textarea">
+                    @(_continuationJson)
+                </textarea> </div>
+                    </div>
+                
+                <div class="mb-3">
+                    <button class="btn btn-primary" type="button" @onclick="PreviousPage"><span class="oi oi-chevron-left" aria-hidden="true"></span> Previous step</button>
+                    <button class="btn btn-success" disabled=@(_previewResponse?.Result?.Error != null) type="button" @onclick="SendTransaction"><span class="oi oi-check" aria-hidden="true"></span> Send</button>
+                </div>
+          
+            </div>
+            <div class="@GetClassForStepId("results")">
+                <h4>Results</h4>
+                <TransactionResultView RequestKey="@_resultRequestKey" ChainId="@_resultChainId" ReferenceType="TransactionResultView.TransactionReference.RequestKey"></TransactionResultView>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private string _requestKey;
+    private string _chainId = "0";
+
+    string[] _steps = new string[]
+    {
+        "waitingForInput",
+        "continuationLoaded",
+        "preview",
+        "results"
+    };
+    
+    string _currentStep = "waitingForInput";
+
+    string GetClassForStepId(string shouldShow)
+    {
+        if (_currentStep == shouldShow)
+            return "";
+        return "hide-fully";
+    }
+
+    async Task NextPage()
+    {
+        var index = Array.IndexOf(_steps, _currentStep);
+        if (index >= _steps.Length - 1)
+            return;
+
+        _currentStep = _steps[index + 1];
+        StateHasChanged();
+    }
+
+    async Task PreviousPage()
+    {
+        var index = Array.IndexOf(_steps, _currentStep);
+        if (index <= 0)
+            return;
+
+        _currentStep = _steps[index - 1];
+        StateHasChanged();
+    }
+
+    PactCommand _cmdModel;
+    PactCommandResponse _previewResponse;
+    EditContext _editContext;
+
+    List<AccountIdentifier> _accounts = new();
+
+    PactKeypair[] _signingKeypairs = Array.Empty<PactKeypair>();
+    PactCommand _sentCommand;
+
+    bool _editorInitialized;
+    
+    private PactCommand _priorCommand;
+    private PactCommandResponse _priorCommandResponse;
+    private string _targetRequestKey;
+    private string _targetChain;
+
+    private Timer _timer;
+    private bool _loading;
+
+    string _continuationJson = ""; 
+
+    private async Task Lookup()
+    {
+        //if (_requestKey != _targetRequestKey || _chainId != _targetChain)
+        {
+            _targetRequestKey = _requestKey;
+            _targetChain = _chainId;
+            _priorCommand = null;
+            _priorCommandResponse = null;
+            _timer?.Stop();
+            _timer?.Close();
+            _timer = null;
+
+            if (string.IsNullOrWhiteSpace(_targetRequestKey))
+                return;
+
+            if (!_loading && (_priorCommand == null || !_priorCommand.Hash.Equals(_targetRequestKey)))
+                await Refresh();
+
+            if (_timer == null && _priorCommand == null)
+            {
+                _timer = new Timer(3000);
+                _timer.Elapsed += (s, e) => Refresh();
+                _timer.Enabled = true;
+            }
+        }
+    }
+
+    private async Task Refresh()
+    {
+        _loading = true;
+        StateHasChanged();
+        if (_priorCommandResponse == null)
+            _priorCommandResponse = await _pactClient.PollRequestAsync(_targetChain, _targetRequestKey);
+
+        if (_priorCommandResponse != null && _priorCommand == null)
+            _priorCommand = await _chainwebQueryService.FetchTransactionAsync(_targetChain, _priorCommandResponse.Metadata.BlockHash, _targetRequestKey);
+
+        _loading = false;
+        StateHasChanged();
+
+        if (_priorCommand != null)
+        {
+            if (_timer != null)
+            {
+                Console.WriteLine($"Received tx details, stopping refresh");
+                _timer.Stop();
+                _timer.Close();
+            }
+
+            _currentStep = "continuationLoaded";
+            await GenerateContinuationCommand();
+        }
+    }
+    
+
+    protected async Task GenerateContinuationCommand()
+    {
+        var targetChain = _priorCommandResponse.Continuation.Yield.Provenance.TargetChainId;
+        
+        _cmdModel = new PactCommand();
+        _cmdModel.Command = new PactCmd();
+        _cmdModel.Command.NetworkId = _priorCommand.Command.NetworkId;
+        _cmdModel.Command.Metadata = _pactClient.GenerateMetadata(gasLimit: 400, 
+            gasPrice: 0.000000001m, 
+            sender: "free-x-chain-gas", 
+            chain: targetChain);
+        
+        _cmdModel.Command.Nonce = DateTime.UtcNow.ToString().HashEncoded();
+        _cmdModel.Command.Signers = new List<PactSigner>();
+        _cmdModel.Signatures = new PactSignature[_cmdModel.Command.Signers.Count];
+        _cmdModel.Command.Payload.Cont = new PactContPayload()
+        {
+            Step = _priorCommandResponse.Continuation.Step + 1,
+            Data = null,
+            PactId = _priorCommandResponse.Continuation.PactId,
+            Proof = await _pactClient.ObtainSpvAsync(_priorCommand.Command.Metadata.ChainId, targetChain, _priorCommandResponse.RequestKey)
+        };
+        StateHasChanged();
+
+        _cmdModel.Command.Signers.AddRange(_priorCommand.Command.Signers);
+        StateHasChanged();
+
+        await Synchronize();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cmdModel = _pactClient.BuildCommand(_pactClient.GenerateExecCommand("0", "(+ 1 2)"));
+        
+        if (!_editorInitialized)
+        {
+            _editContext = new EditContext(_cmdModel);
+            _editContext.OnFieldChanged += FieldChanged;
+            _editorInitialized = true;
+        }
+        _accounts = (await _accountsManager.GetAccountsRegisteredAsync()).ToList();
+        
+        await base.OnInitializedAsync();
+    }
+
+    private async void FieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        await Synchronize();
+    }
+
+    private async Task Synchronize()
+    {
+        await Task.Run(_cmdModel.UpdateHash);
+        await Task.Run(StateHasChanged);
+    }
+
+    private async Task ApplySignatures()
+    {
+        await Task.Run(delegate
+        {
+            for (int i = 0; i < _signingKeypairs.Length; i++)
+            {
+                var keypair = _signingKeypairs[i];
+                if (keypair == null)
+                    continue;
+
+                _cmdModel.Signatures[i].Signature = keypair.Sign(_cmdModel).ToHexString();
+            }
+        });
+    }
+
+    private void RemoveAppliedSignatures()
+    {
+        for (int i = 0; i < _signingKeypairs.Length; i++)
+        {
+            var keypair = _signingKeypairs[i];
+            if (keypair == null)
+                continue;
+
+            _cmdModel.Signatures[i].Signature = "";
+        }
+    }
+
+    protected async Task PreviewTransaction()
+    {
+        _currentStep = "preview";
+        StateHasChanged();
+
+        await Synchronize();
+        await ApplySignatures();
+        _cmdModel.UpdateHash();
+    // _sentCommand = JsonSerializer.Deserialize<PactCommand>(_cmdModel.JsonEncodedForLocal, PactClient.PactJsonOptions);
+        // _sentCommand.SetCommand(_sentCommand.CommandEncoded);
+        _continuationJson = _cmdModel.JsonEncodedForSend;
+        var resp = await _pactClient.ExecuteLocalAsync(_cmdModel);
+        RemoveAppliedSignatures();
+        
+        _previewResponse = resp;
+        StateHasChanged();
+    }
+
+    string _resultRequestKey = "";
+    string _resultChainId = "";
+
+    protected async Task SendTransaction()
+    {
+        _currentStep = "results";
+        
+        await Synchronize();
+        await ApplySignatures();
+        _cmdModel.UpdateHash();
+        _sentCommand = JsonSerializer.Deserialize<PactCommand>(_cmdModel.JsonEncodedForLocal, PactClient.PactJsonOptions);
+        _sentCommand.SetCommand(_sentCommand.CommandEncoded);
+        _resultRequestKey = await _pactClient.SendTransactionAsync(_sentCommand);
+        _resultChainId = _sentCommand.Command.Metadata.ChainId;
+        
+        RemoveAppliedSignatures();
+        StateHasChanged();
+    }
+}

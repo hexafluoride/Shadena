@@ -159,16 +159,24 @@
 
     public async Task UpdateBacking()
     {
+        StateHasChanged();
+        await Utility.YieldToBrowser();
+        
         foreach (var item in items.ToList())
         {
+            if (string.IsNullOrWhiteSpace(item.Value.idPrefix))
+                continue;
+            
             if (!item.Value.TypeSynchronized)
             {
                 await JS.InvokeVoidAsync("setActiveDataType", item.Value.idPrefix, item.Value.ActiveSelection);
                 item.Value.TypeSynchronized = true;
             }
-
-            var active = await JS.InvokeAsync<string>("getActiveDataType", item.Value.idPrefix);
-            item.Value.ActiveSelection = active;
+            else
+            {
+                var active = await JS.InvokeAsync<string>("getActiveDataType", item.Value.idPrefix);
+                item.Value.ActiveSelection = active;
+            }
 
             var prevValue = Transaction.Payload.Exec.DataAsObject[item.Key];
             if (prevValue == null || prevValue.ToJsonString() != item.Value.GetValue().ToJsonString())

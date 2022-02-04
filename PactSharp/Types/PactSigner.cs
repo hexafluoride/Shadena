@@ -22,4 +22,9 @@ public class PactSigner
     {
         PubKey = pubKey;
     }
+
+    public override string ToString()
+    {
+        return $"Pact signer {PubKey}";
+    }
 }

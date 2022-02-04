@@ -21,7 +21,7 @@
         {
             var signerIndex = i++;
 
-            if (Transaction.Signatures == null || signerIndex >= signaturesCopied.Length)
+            if (Transaction.Signatures == null || SigningKeypairs == null || signerIndex >= signaturesCopied.Length)
                 continue;
 
             bool signatureHasKeypair = signerIndex < keypairAvailable.Length && keypairAvailable[signerIndex];

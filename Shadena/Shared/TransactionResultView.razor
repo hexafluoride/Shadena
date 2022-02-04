@@ -79,7 +79,7 @@
             }
         }
     </div>
-    @if (_commandResponse?.Result != null)
+    @if (_commandResponse?.Result?.Data != null)
     {
         <div class="row">
             <div class="col">
@@ -87,6 +87,100 @@
                 <textarea class="form-control" readonly>@(_commandResponse.Result.Data)</textarea>
             </div>
         </div>
+    }
+    @if (_commandResponse?.Result?.Error != null)
+    {
+        <div class="row">
+            <div class="col">
+                <small>ERROR TYPE</small>
+                <pre>@(_commandResponse.Result.Error.Type)</pre>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>ERROR MESSAGE</small>
+                <textarea class="form-control" readonly>@(_commandResponse.Result.Error.Message)</textarea>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>STACK TRACE</small>
+                <textarea class="form-control" readonly>@(string.Join('\n', _commandResponse.Result.Error.CallStack))</textarea>
+            </div>
+        </div>
+    }
+    @if (_commandResponse?.Continuation != null)
+    {
+        <div class="row">
+            <div class="col">
+                <small>CONTINUATION CALL</small>
+                <table class="table">
+                    <thead>
+                    <th>arg #</th>
+                    <th>data</th>
+                    </thead>
+                    <tbody>
+                    <tr><td>function</td><td><span class="code-display">@_commandResponse.Continuation.Continuation.Def</span></td></tr>
+                    @{
+                        var i = 0;
+                        foreach (var arg in _commandResponse.Continuation.Continuation.Arguments)
+                        {
+                            <tr><td>@(i++)</td><td><span class="code-display">@arg.ToString()</span></td></tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <small>STEP</small>
+                <p>#@(_commandResponse.Continuation.Step + 1) out of @(_commandResponse.Continuation.StepCount) total</p>
+            </div>
+        </div>
+        @if (_commandResponse?.Continuation?.Yield?.Provenance != null)
+        {
+            <div class="row">
+                <div class="col">
+                    <small>TARGET CHAIN</small>
+                    <pre>@_commandResponse.Continuation.Yield.Provenance.TargetChainId</pre>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <small>TARGET MODULE HASH</small>
+                    <pre>@_commandResponse.Continuation.Yield.Provenance.ModuleHash</pre>
+                </div>
+            </div>
+        }
+        <div class="row">
+            <div class="col">
+                <small>TRANSACTION ID</small>
+                <pre>@_commandResponse.TransactionId</pre>
+            </div>
+        </div>
+        @if (_commandResponse?.Continuation?.Yield != null)
+        {
+            <div class="row">
+                <div class="col">
+                    <small>YIELDED DATA</small>
+                    <table class="table">
+                        <thead>
+                        <th>key</th>
+                        <th>value</th>
+                        </thead>
+                        <tbody>
+                        @{
+                            foreach (var arg in _commandResponse.Continuation.Yield.Data)
+                            {
+                                <tr><td><span class="code-display">@arg.Key</span></td><td><span class="code-display">@arg.Value.ToString()</span></td></tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
     }
     @if (_command?.Command?.Payload?.Exec != null)
     {
@@ -150,20 +244,34 @@
     {
         await base.SetParametersAsync(parameters);
 
+        string nextRequestKey = "";
+        string nextChain = "";
+
         switch (ReferenceType)
         {
             case TransactionReference.PollResponse:
-                _targetRequestKey = Result?.RequestKey;
-                _targetChain = Result?.Metadata?.PublicMetadata?.ChainId ?? "0";
+                nextRequestKey = Result?.RequestKey;
+                nextChain = Result?.Metadata?.PublicMetadata?.ChainId ?? "0";
                 break;
             case TransactionReference.SentCommand:
-                _targetRequestKey = Command?.Hash;
-                _targetChain = Command?.Command.Metadata?.ChainId ?? "0";
+                nextRequestKey = Command?.Hash;
+                nextChain = Command?.Command.Metadata?.ChainId ?? "0";
                 break;
             case TransactionReference.RequestKey:
-                _targetRequestKey = RequestKey;
-                _targetChain = ChainId;
+                nextRequestKey = RequestKey;
+                nextChain = ChainId;
                 break;
+        }
+
+        if (_targetRequestKey != nextRequestKey || _targetChain != nextChain)
+        {
+            _targetRequestKey = nextRequestKey;
+            _targetChain = nextChain;
+            _command = null;
+            _commandResponse = null;
+            _timer?.Stop();
+            _timer?.Close();
+            _timer = null;
         }
 
         if (string.IsNullOrWhiteSpace(_targetRequestKey))

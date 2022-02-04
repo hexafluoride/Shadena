@@ -109,7 +109,7 @@ a, .btn-link {
 .loading-content {
     animation: opacity-animation-100 1s;
     animation-fill-mode: both;
-    color: #eaeaea;
+    color: #999999;
     text-align: center;
     font-size: x-large;
     position: fixed;
@@ -138,8 +138,23 @@ a, .btn-link {
     overflow-wrap: anywhere;
 }
 
+.code-display {
+    font-family: monospace;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
 .hide {
     display: none;
+}
+
+.hide-fully {
+    display: none;
+    float: none;
+}
+
+.code-textarea {
+    font-family: monospace; min-height:55vh; background-color: #fefefe;
 }
 
 @keyframes fadein {
