@@ -6,15 +6,18 @@
     <tr>@TableHeader</tr>
     </thead>
     <tbody>
-    @foreach (var item in Items)
+    @if (Items != null)
     {
-        if (RawRowTemplate is not null)
+        foreach (var item in Items)
         {
-            @RawRowTemplate(item)
-        }
-        else if (RowTemplate is not null)
-        {
-            <tr>@RowTemplate(item)</tr>
+            if (RawRowTemplate is not null)
+            {
+                @RawRowTemplate(item)
+            }
+            else if (RowTemplate is not null)
+            {
+                <tr>@RowTemplate(item)</tr>
+            }
         }
     }
     </tbody>

@@ -179,7 +179,15 @@
             }
 
             var prevValue = Transaction.Payload.Exec.DataAsObject[item.Key];
-            if (prevValue == null || prevValue.ToJsonString() != item.Value.GetValue().ToJsonString())
+
+            if (prevValue == null)
+                Console.WriteLine($"prevValue is null at {item.Key}");
+            if (item.Value == null)
+                Console.WriteLine($"item.Value is null at {item.Key}");
+            else
+                Console.WriteLine($"item.Value is not null at {item.Key}, type is {item.Value.ActiveSelection}, value is {item.Value.GetValue()?.ToJsonString() ?? "null"}");
+
+            if (prevValue == null || prevValue.ToJsonString() != item.Value?.GetValue()?.ToJsonString())
             {
                 dataDirty = true;
             }
@@ -244,7 +252,7 @@
             }
         }
 
-        public PactKeyset KeysetValue { get; set; }
+        public PactKeyset KeysetValue { get; set; } = new();
 
         public string FreeformValue
         {
@@ -268,6 +276,7 @@
 
         private void FireChangedEvent()
         {
+            Console.WriteLine($"Data item with prefix {idPrefix} modified");
             ChangedHandler?.Invoke();
         }
 
@@ -304,6 +313,8 @@
                 ActiveSelection = "freeform";
                 FreeformValue = node.ToJsonString();
             }
+            
+            Console.WriteLine($"Data item initialized with type {ActiveSelection} and value \"{GetValue()}\" and json representation \"{GetValue()?.ToJsonString() ?? "null"}\"");
         }
 
         public DataInputModel(JsonElement value)
@@ -348,7 +359,7 @@
                     return JsonValue.Create(DecimalValue);
                     break;
                 case "string":
-                    return JsonValue.Create(StringValue);
+                    return JsonValue.Create(StringValue ?? "");
                     break;
                 case "keyset":
                     return JsonNode.Parse(JsonSerializer.Serialize(KeysetValue, PactClient.PactJsonOptions)).AsObject();
