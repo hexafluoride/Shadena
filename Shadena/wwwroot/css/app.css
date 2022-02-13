@@ -90,6 +90,23 @@ a, .btn-link {
     height: 100vh;
 }
 
+.form-control {
+    background-color: #383838 !important;
+    color: #ededed !important;
+}
+
+.form-select {
+    background-color: #383838 !important;
+    color: #ededed !important;
+}
+
+.code-textarea {
+    font-family: monospace; 
+    min-height:55vh;
+    background-color: #383838 !important;
+    color: #ededed !important;
+}
+
 @keyframes opacity-animation-35 {
     from { opacity: 0; }
     50%  { opacity: 0; }
@@ -151,10 +168,6 @@ a, .btn-link {
 .hide-fully {
     display: none;
     float: none;
-}
-
-.code-textarea {
-    font-family: monospace; min-height:55vh; background-color: #fefefe;
 }
 
 @keyframes fadein {

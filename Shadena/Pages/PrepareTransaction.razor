@@ -57,15 +57,15 @@
                     </ul>
                     <div class="tab-content" id="export-tab-content">
                         <div class="tab-pane fade show active" id="export-json-local" role="tabpanel" aria-labelledby="json-local-tab">
-                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForLocal">
+                            <textarea class="form-control code-textarea" readonly="readonly" @bind="cmdModel.JsonEncodedForLocal">
                         </textarea>
                         </div>
                         <div class="tab-pane fade" id="export-json-send" role="tabpanel" aria-labelledby="json-send-tab">
-                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.JsonEncodedForSend">
+                            <textarea class="form-control code-textarea" readonly="readonly" @bind="cmdModel.JsonEncodedForSend">
                         </textarea>
                         </div>
                         <div class="tab-pane fade" id="export-yaml" role="tabpanel" aria-labelledby="yaml-tab">
-                            <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" readonly="readonly" @bind="cmdModel.YamlEncoded">                
+                            <textarea class="form-control code-textarea" readonly="readonly" @bind="cmdModel.YamlEncoded">                
                         </textarea>
                         </div>
                     </div>
@@ -94,7 +94,7 @@
                         </div>
                         <div class="tab-pane fade" id="import-yaml" role="tabpanel" aria-labelledby="import-yaml-tab">
                             <div class="mb-3">
-                                <textarea class="form-control" style="font-family: monospace; min-height:55vh; background-color: #fefefe;" @bind="@Import.Yaml">
+                                <textarea class="form-control code-textarea" @bind="@Import.Yaml">
                                 </textarea>
                             </div>
                             <div class="mb-3">
@@ -137,7 +137,7 @@
         <div class="col-xl-8" id="code-outer">
             
             <div class="mb-3">
-                <div id="code-container" style="height:80vh; border:1px solid #cccccc;"></div>
+                <div id="code-container" style="height:80vh;"></div>
             </div>
             
             <div class="mb-3">
@@ -147,7 +147,7 @@
         </div>
         <div class="col-xl-4 @(inputEnabled ? "" : "loadingQuick")">
             <div class="mb-3">
-                <textarea class="form-control" style="font-family: monospace; min-height:25vh; background-color: #fefefe;" readonly="readonly" @bind="resultsText"></textarea>
+                <textarea class="form-control code-textarea" style="min-height: 25vh;" readonly="readonly" @bind="resultsText"></textarea>
             </div>
             
             <EditForm EditContext="editContext">
