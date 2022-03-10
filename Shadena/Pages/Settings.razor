@@ -21,7 +21,13 @@
             <option value="@Network.Mainnet">Mainnet</option>
             <option value="@Network.Testnet">Testnet</option>
             <option value="@Network.Local">Local Pact server at localhost:8080</option>
+            <option value="@Network.Custom">Custom</option>
         </InputSelect>
+        @if (settingsModel.Network == Network.Custom)
+        {
+            <input type="text" class="form-control" placeholder="Base URI for node, including http/s" @bind="settingsModel.CustomNetworkEndpoint" />
+            <input type="text" class="form-control" placeholder="Custom network name" @bind="settingsModel.CustomNetworkId" />
+        }
     </div>
     <h4>Tokens</h4>
 
@@ -72,8 +78,8 @@
     {
         await _settingsManager.SaveSettingsAsync(settingsModel);
         Console.WriteLine("Saved settings");
-        
-        _pactClient.SetNetwork(settingsModel.Network);
+
+        await _pactClient.Initialize();
         
         await LoadSettings();
         _navigationManager.NavigateTo(_navigationManager.Uri);

@@ -22,7 +22,7 @@ public class PactCmd
     [YamlMember(ScalarStyle = ScalarStyle.Literal)]
     public string Code
     {
-        get => Payload.Exec.Code;
+        get => Payload?.Exec?.Code;
         set { Payload.Exec.Code = value; }
     }
 

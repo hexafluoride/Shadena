@@ -44,52 +44,79 @@ public class PactClient
     public async Task Initialize()
     {
         var settings = await _settingsService.GetSettingsAsync();
-        SetNetwork(settings.Network);
+        await InitializeNetwork(settings);
     }
 
-    public void SetNetwork(Network network)
+    private async Task InitializeNetwork(SettingsModel settings)
     {
+        var network = settings.Network;
         CurrentNetwork = network;
         switch (network)
         {
             case Network.Mainnet:
-                ApiHost = "api.chainweb.com";
+                ApiHost = "https://api.chainweb.com";
                 NetworkId = "mainnet01";
                 ServerType = ServerType.Chainweb;
                 break;
             case Network.Testnet:
-                ApiHost = "api.testnet.chainweb.com";
+                ApiHost = "https://api.testnet.chainweb.com";
                 NetworkId = "testnet04";
                 ServerType = ServerType.Chainweb;
                 break;
             case Network.Local:
-                ApiHost = "localhost:8080";
+                ApiHost = "http://localhost:8080";
                 NetworkId = "";
                 ServerType = ServerType.LocalPact;
+                break;
+            case Network.Custom:
+                ApiHost = settings.CustomNetworkEndpoint;
+                NetworkId = settings.CustomNetworkId;
+                ServerType = ServerType.Chainweb;
                 break;
             default:
                 throw new InvalidOperationException();
         }
 
-        switch (ServerType)
+        var shortTimeoutHttp = new HttpClient();
+        shortTimeoutHttp.Timeout = TimeSpan.FromSeconds(2);
+
+        try
         {
-            case ServerType.Chainweb:
-                RecognizedChains = Enumerable.Range(0, 20).Select(i => i.ToString()).ToList();
-                break;
-            case ServerType.LocalPact:
-                RecognizedChains = new List<string>() {"0"};
-                break;
+            var cutResp = await shortTimeoutHttp.GetStringAsync(GetApiUrl("/cut"));
+            var cutRespParsed = JsonDocument.Parse(cutResp);
+            RecognizedChains = cutRespParsed.RootElement.GetProperty("hashes").EnumerateObject()
+                .Select(t => t.Name)
+                .OrderBy(k => int.TryParse(k, out int n) ? n : -1)
+                .ToList();
+
+            if (!RecognizedChains.Any())
+                throw new Exception();
+        }
+        catch
+        {
+            switch (ServerType)
+            {
+                case ServerType.Chainweb:
+                    RecognizedChains = Enumerable.Range(0, 20).Select(i => i.ToString()).ToList();
+                    break;
+                case ServerType.LocalPact:
+                    RecognizedChains = new List<string>() {"0"};
+                    break;
+            }
         }
     }
 
-    private string GetApiUrl(string endpoint, string chain)
+    private string GetApiUrl(string endpoint, string chain = null)
     {
         switch (ServerType)
         {
             case ServerType.Chainweb:
-                return $"https://{ApiHost}/chainweb/0.0/{NetworkId}/chain/{chain}{endpoint}";
+                if (chain != null)
+                    return $"{ApiHost}/chainweb/0.0/{NetworkId}/chain/{chain}{endpoint}";
+                else
+                    return $"{ApiHost}/chainweb/0.0/{NetworkId}{endpoint}";
             case ServerType.LocalPact:
-                return $"http://{ApiHost}{endpoint}";
+                return $"{ApiHost}{endpoint}";
             default:
                 return null;
         }
@@ -198,6 +225,26 @@ public class PactClient
         try
         {
             return JsonSerializer.Deserialize<ChainwebBlockHeader>(await resp.Content.ReadAsStreamAsync(), PactJsonOptions);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Exception: {e}");
+            return null;
+        }
+    }
+    
+    public async Task<IEnumerable<ChainwebBlockHeader>> GetBlockHeadersAsync(string chain, int minHeight, int maxHeight = -1)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, GetApiUrl($"/header?minheight={minHeight}{(maxHeight != -1 ? "&maxheight=" + maxHeight : "")}&t=json", chain));
+        req.Headers.Remove("Accept");
+        req.Headers.TryAddWithoutValidation("Accept", "application/json;blockheader-encoding=object");
+        var resp = await _http.SendAsync(req);
+
+        try
+        {
+            var parsed = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
+            return parsed.RootElement.GetProperty("items").EnumerateArray()
+                .Select(e => e.Deserialize<ChainwebBlockHeader>(PactJsonOptions));
         }
         catch (Exception e)
         {
