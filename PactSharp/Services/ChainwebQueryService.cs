@@ -56,6 +56,7 @@ public class ChainwebQueryService : IChainwebQueryService
 ";
 
         var detailsCmd = PactClient.GenerateExecCommand(chain, code, new {accounts = accounts.Select(a => a.Name)});
+        detailsCmd.Metadata.GasLimit = 150000;
         var detailsCommand = PactClient.BuildCommand(detailsCmd);
 
         var resultAccounts = new List<FungibleV2Account>();
