@@ -27,7 +27,7 @@ public class NullCacheService : ICacheService
         return cached.Unwrap<T>();
     }
 
-    public async Task<bool> SetItem<T>(T item, int expirySeconds = 0) where T : ICacheable
+    public Task<bool> SetItem<T>(T item, int expirySeconds = 0) where T : ICacheable
     {
         var cached = Get(item);
         var length = expirySeconds == 0 ? TimeSpan.FromSeconds(3600) : TimeSpan.FromSeconds(expirySeconds);
@@ -45,7 +45,7 @@ public class NullCacheService : ICacheService
             _buffer[item.CacheKey].Dirty = true;
         }
 
-        return true;
+        return Task.FromResult(true);
     }
 
     public async Task<int> InvalidatePrefix(string prefix)
@@ -85,21 +85,21 @@ public class NullCacheService : ICacheService
     private CachedItem Get(ICacheable item) => Get(item.CacheKey);
     private CachedItem Get(string key) => _buffer.ContainsKey(key) ? _buffer[key] : null;
     
-    private async Task<bool> Evict(CachedItem item)
+    private Task<bool> Evict(CachedItem item)
     {
         item.Dirty = true;
         _buffer.Remove(item.Key);
-        return true;
+        return Task.FromResult(true);
     }
 
-    public async Task<bool> Flush()
+    public Task<bool> Flush()
     {
-        return true;
+        return Task.FromResult(true);
     }
 
-    public async Task<bool> Initialize()
+    public Task<bool> Initialize()
     {
-        return true;
+        return Task.FromResult(true);
     }
 
     internal static string WithPrefix(string key) => "$cache$" + key;
