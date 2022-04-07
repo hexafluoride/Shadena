@@ -23,6 +23,11 @@ public class PactSigner
         PubKey = pubKey;
     }
 
+    public PactSigner(PactKeypair keypair)
+    {
+        PubKey = keypair.PublicKey.ToHexString();
+    }
+
     public override string ToString()
     {
         return $"Pact signer {PubKey}";
