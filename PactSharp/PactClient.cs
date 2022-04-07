@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -197,7 +196,7 @@ public class PactClient
                 {
                     respDict[key] = value.Deserialize<PactCommandResponse>(PactJsonOptions);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     throw; // TODO: Error handling
                 }
@@ -263,6 +262,7 @@ public class PactClient
         }
         catch (Exception e)
         {
+            Console.WriteLine($"Exception: {e}");
             return null;
         }
     }

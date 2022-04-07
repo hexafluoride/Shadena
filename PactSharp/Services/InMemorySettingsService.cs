@@ -11,13 +11,14 @@ public class InMemorySettingsService : ISettingsService
         Settings = settings;
     }
     
-    public async Task<SettingsModel> GetSettingsAsync()
+    public Task<SettingsModel> GetSettingsAsync()
     {
-        return Settings;
+        return Task.FromResult(Settings);
     }
 
-    public async Task SaveSettingsAsync(SettingsModel settings)
+    public Task SaveSettingsAsync(SettingsModel settings)
     {
         Settings = settings;
+        return Task.CompletedTask;
     }
 }
