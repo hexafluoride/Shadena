@@ -17,7 +17,7 @@
 
         foreach (var pair in items)
         {
-            var uniqueIdPrefix = PactSharp.Utility.HashEncoded(Transaction.Nonce) + "-" + i++ + "-";
+            var uniqueIdPrefix = "tx-data-" + PactSharp.Utility.HashEncoded(Transaction.Nonce) + "-" + i++ + "-";
             pair.Value.idPrefix = uniqueIdPrefix;
             <div class="accordion-item">
                 <h2 class="accordion-header" id="@uniqueIdPrefix-heading">
