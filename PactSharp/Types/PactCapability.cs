@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace PactSharp.Types;
@@ -6,12 +7,46 @@ public class PactCapability
 {
     public string Name { get; set; }
 
-    [JsonPropertyName("args")] public List<object> Arguments { get; set; } = new();
+    private List<object> _args = new();
+
+    [JsonPropertyName("args")]
+    public List<object> Arguments
+    {
+        get => _args;
+        set
+        {
+            _args = value;
+            PromoteArgumentsFromJsonElement();
+        }
+    }
+
+    private void PromoteArgumentsFromJsonElement()
+    {
+        Func<JsonElement, object> resolve = null;
+        resolve = (elem) =>
+        {
+            return elem.ValueKind switch
+            {
+                JsonValueKind.False => false,
+                JsonValueKind.True => true,
+                JsonValueKind.Number => elem.GetDecimal(),
+                JsonValueKind.String => elem.GetString(),
+                JsonValueKind.Array => elem.EnumerateArray().Select(e => resolve(e)).ToArray(),
+                _ => elem
+            };
+        };
+        
+        for (int i = 0; i < Arguments.Count; i++)
+        {
+            if (Arguments[i] is JsonElement jsonElement)
+                Arguments[i] = resolve(jsonElement);
+        }
+    }
 
     public override string ToString() => 
         string.IsNullOrWhiteSpace(Name) ? "" : 
         Arguments.Count == 0 ? $"({Name})" :
-        $"({Name} {string.Join(' ', Arguments)})";
+        $"({Name} {string.Join(' ', Arguments.Select(arg => arg is string strArg ? '"' + strArg + '"' : arg))})";
 
     static List<string> SplitSpaceSeparatedValues(string str)
     {
