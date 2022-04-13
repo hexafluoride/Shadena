@@ -77,6 +77,15 @@
                     </div>
                 }
             }
+            @if (_command?.Command?.Signers?.Any() == true)
+            {
+                <div class="row">
+                    <div class="col">
+                        <small>SIGNERS</small>
+                        <SignersControl Signers="_command.Command.Signers" Editable="false"></SignersControl>
+                    </div>
+                </div>
+            }
         }
     </div>
     @if (_commandResponse?.Result?.Data != null)

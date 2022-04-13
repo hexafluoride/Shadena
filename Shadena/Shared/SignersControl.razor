@@ -4,43 +4,64 @@
 
 @inject IKeypairManager _keypairManager
 
-<div class="input-group">
-    <input type="text" class="form-control" name="signer-pubkey" placeholder="Public key" @bind="newSignerName" list="pubkey-list" />
-    <datalist id="pubkey-list">
-        @foreach (var keypair in keypairs)
-        {
-            <option value="@keypair.PublicKey.ToHexString()">@keypair.PublicKey.ToHexString()</option>
-        }
-    </datalist>
-    <button class="btn btn-sm btn-outline-primary" type="button" onclick="@AddSigner"><span class="oi oi-plus" aria-hidden="true"></span> Add signer</button>
-</div>
+@if (Editable)
+{
+    <div class="input-group">
+        <input type="text" class="form-control" name="signer-pubkey" placeholder="Public key" @bind="newSignerName" list="pubkey-list"/>
+        <datalist id="pubkey-list">
+            @foreach (var keypair in keypairs)
+            {
+                <option value="@keypair.PublicKey.ToHexString()">@keypair.PublicKey.ToHexString()</option>
+            }
+        </datalist>
+        <button class="btn btn-sm btn-outline-primary" type="button" onclick="@AddSigner"><span class="oi oi-plus" aria-hidden="true"></span> Add signer</button>
+    </div>
+}
 <TableTemplate Items="@Signers" Context="signer" >
     <RawRowTemplate>
         <tr>
             <td class="align-middle text-wrap address-display">@signer.PubKey</td>
-            <td class="col-2">
-                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveSigner(signer))">
-                    <span class="oi oi-minus" aria-hidden="true"></span> Remove
-                </button>
-            </td>
+            @if (Editable)
+            {
+                <td class="col-2">
+                    <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveSigner(signer))">
+                        <span class="oi oi-minus" aria-hidden="true"></span> Remove
+                    </button>
+                </td>
+            }
         </tr>
         <tr>
             <td>
                 <div class="container-fluid">
-                    <div class="input-group">
-                        <input type="text" class="form-control" name="signer-capability" placeholder="(free.example.CAPABILITY 'arg1 'arg2 3.0)" @bind="newCapabilityContents"/>
-                        <button class="btn btn-sm btn-outline-primary" type="button" @onclick="@(e => AddCapability(signer))"><span class="oi oi-plus" aria-hidden="true"></span> Add capability</button>
-                    </div>
-                    <TableTemplate Items="@signer.Capabilities" Context="capability" Classes="table-sm table-secondary">
-                        <RowTemplate>
-                            <td class="align-middle text-wrap font-monospace"><small>@capability</small></td>
-                            <td class="col-2">
-                                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveCapability(signer, capability))">
-                                    <span class="oi oi-minus" aria-hidden="true"></span> Remove
-                                </button>
-                            </td>
-                        </RowTemplate>
-                    </TableTemplate>
+                    @if (Editable)
+                    {
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="signer-capability" placeholder="(free.example.CAPABILITY 'arg1 'arg2 3.0)" @bind="newCapabilityContents"/>
+                            <button class="btn btn-sm btn-outline-primary" type="button" @onclick="@(e => AddCapability(signer))"><span class="oi oi-plus" aria-hidden="true"></span> Add capability</button>
+                        </div>
+                    }
+                    @if (Editable || signer.Capabilities?.Any() == true)
+                    {
+                        <TableTemplate Items="@signer.Capabilities" Context="capability" Classes="table-sm table-secondary">
+                            <TableHeader>
+                                @if (!Editable)
+                                {
+                                    <small style="background-color: transparent;">CAPABILITIES</small>   
+                                }
+                            </TableHeader>
+                            <RowTemplate>
+                                <td class="align-middle text-wrap font-monospace"><small>@capability</small></td>
+                                @if (Editable)
+                                {
+                                    <td class="col-2">
+                                        <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(e => RemoveCapability(signer, capability))">
+                                            <span class="oi oi-minus" aria-hidden="true"></span> Remove
+                                        </button>
+                                    </td>
+                                }
+                            </RowTemplate>
+                        </TableTemplate>
+                    }
                 </div>
             </td>
         </tr>
@@ -52,6 +73,9 @@
     string newCapabilityContents = "";
 
     List<PactKeypair> keypairs { get; set; } = new();
+
+    [Parameter]
+    public bool Editable { get; set; } = true;
     
     [Parameter]
     public List<PactSigner> Signers { get; set; }
