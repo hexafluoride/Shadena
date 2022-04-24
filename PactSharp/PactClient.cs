@@ -205,7 +205,6 @@ public class PactClient
 
         foreach (var key in keys)
         {
-            Console.WriteLine($"{key} found: {respDict.ContainsKey(key)}");
             if (!respDict.ContainsKey(key))
                 respDict[key] = null;
         }
