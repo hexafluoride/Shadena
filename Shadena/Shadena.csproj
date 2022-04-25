@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PactSharp\PactSharp.csproj" />
+    <ProjectReference Include="..\PactSharp\PactSharp\PactSharp.csproj" />
   </ItemGroup>
 
 </Project>

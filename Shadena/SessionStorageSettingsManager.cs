@@ -4,7 +4,7 @@ using PactSharp.Types;
 
 namespace Shadena;
 
-public class SessionStorageSettingsManager : ISettingsService
+public class SessionStorageSettingsManager
 {
     private ILocalStorageService localStorage = null;
     

@@ -13,14 +13,15 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddScoped<IAccountsManager, AccountsManager>();
 builder.Services.AddScoped<IKeypairManager, SessionStorageKeypairManager>();
-builder.Services.AddScoped<ISettingsService, SessionStorageSettingsManager>();
+builder.Services.AddScoped<SessionStorageSettingsManager>();
 builder.Services.AddScoped<ICacheService, SessionStorageCacheService>();
-builder.Services.AddScoped<PactClient>(sp => new PactClient(new HttpClient(), sp.GetService<ISettingsService>()));
+builder.Services.AddScoped<PactClient>(sp => new PactClient(new HttpClient()));
 builder.Services.AddScoped<IChainwebQueryService, ChainwebQueryService>();
 
 var host = builder.Build();
 
-await host.Services.GetService<PactClient>().Initialize();
+var appSettings = await host.Services.GetService<SessionStorageSettingsManager>().GetSettingsAsync();
+await host.Services.GetService<PactClient>().UpdateSettings(appSettings.GenerateClientSettings());
 await host.Services.GetService<ICacheService>().Initialize();
 
 await host.RunAsync();

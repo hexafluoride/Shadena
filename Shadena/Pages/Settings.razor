@@ -5,7 +5,7 @@
 @using PactSharp.Types
 
 @inject PactClient _pactClient
-@inject ISettingsService _settingsManager
+@inject SessionStorageSettingsManager _settingsManager
 @inject NavigationManager _navigationManager
 
 <div class="container">
@@ -79,8 +79,7 @@
         await _settingsManager.SaveSettingsAsync(settingsModel);
         Console.WriteLine("Saved settings");
 
-        await _pactClient.Initialize();
-        
+        await _pactClient.UpdateSettings(settingsModel.GenerateClientSettings());
         await LoadSettings();
         _navigationManager.NavigateTo(_navigationManager.Uri);
     }

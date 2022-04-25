@@ -1,0 +1,3 @@
+[submodule "PactSharp"]
+	path = PactSharp
+	url = git@github.com:hexafluoride/PactSharp
