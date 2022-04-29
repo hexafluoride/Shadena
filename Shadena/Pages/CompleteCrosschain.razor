@@ -326,23 +326,23 @@
         var targetChain = _priorCommandResponse.Continuation.Yield.Provenance.TargetChainId;
         
         _cmdModel = new PactCommand();
-        _cmdModel.Command = new PactCmd();
-        _cmdModel.Command.NetworkId = _priorCommand.Command.NetworkId;
-        _cmdModel.Command.Metadata = _pactClient.GenerateMetadata(gasLimit: 400, 
+        var _cmdMetadata = _pactClient.GenerateMetadata(gasLimit: 400,
             gasPrice: 0.000000001m, 
             sender: "free-x-chain-gas", 
             chain: targetChain);
+        var _cmdNetworkId = _priorCommand.Command.NetworkId;
+        _cmdModel.Command = new PactCmd(_cmdMetadata, _cmdNetworkId);
         
         _cmdModel.Command.Nonce = DateTime.UtcNow.ToString().HashEncoded();
         _cmdModel.Command.Signers = new List<PactSigner>();
         _cmdModel.Signatures = new PactSignature[_cmdModel.Command.Signers.Count];
-        _cmdModel.Command.Payload.Cont = new PactContPayload()
-        {
-            Step = _priorCommandResponse.Continuation.Step + 1,
-            Data = null,
-            PactId = _priorCommandResponse.Continuation.PactId,
-            Proof = await _pactClient.ObtainSpvAsync(_priorCommand.Command.Metadata.ChainId, targetChain, _priorCommandResponse.RequestKey)
-        };
+        _cmdModel.Command.Payload.Cont = new PactContPayload(
+            _priorCommandResponse.Continuation.PactId, // pactId
+            false, // rollback
+            _priorCommandResponse.Continuation.Step + 1, // step
+            await _pactClient.ObtainSpvAsync(_priorCommand.Command.Metadata.ChainId, targetChain, _priorCommandResponse.RequestKey), // proof
+            null // data
+        );
         StateHasChanged();
 
         _cmdModel.Command.Signers.AddRange(_priorCommand.Command.Signers);
