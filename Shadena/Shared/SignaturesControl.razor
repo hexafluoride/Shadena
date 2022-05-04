@@ -92,8 +92,11 @@
 
     public async Task SynchronizeNumberAsync()
     {
-        if (Transaction.Command.Signers.Count == Transaction.Signatures.Length)
+        if (keypairAvailable.Length == Transaction.Command.Signers.Count && 
+            Transaction.Command.Signers.Count == Transaction.Signatures.Length)
             return;
+    
+        //Console.WriteLine($"Synchronizing signatures {keypairAvailable.Length}, {Transaction.Command.Signers.Count}");
     
         var newSigs = new PactSignature[Transaction.Command.Signers.Count];
         var newKeypairs = new PactKeypair[newSigs.Length];
@@ -109,7 +112,7 @@
         for (int i = 0; i < Math.Min(newSigs.Length, Transaction.Signatures.Length); i++)
         {
             newSigs[i] = Transaction.Signatures[i];
-            newKeypairs[i] = SigningKeypairs[i];
+            newKeypairs[i] = SigningKeypairs.Length > i ? SigningKeypairs[i] : null;
         }
 
         await Task.Run(delegate

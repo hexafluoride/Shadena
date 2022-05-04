@@ -75,6 +75,6 @@
         var accountsFiltered = Accounts;
 
         TokenAccounts = Tokens.ToDictionary(token => token, token => accountsFiltered.Where(a => a.Module == token).ToList());
-        TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance));
+        TokenBalances = TokenAccounts.ToDictionary(p => p.Key, p => p.Value.Sum(a => a.Balance ?? 0m));
     }
 }

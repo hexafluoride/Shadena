@@ -5,11 +5,13 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Timers
+@using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Components
 @using PactSharp
 @using PactSharp.Services
 @using PactSharp.Types
 
+@inject TransactionHistoryService _transactionHistory
 @inject IChainwebQueryService _chainwebQueryService
 @inject IAccountsManager _accountsManager
 @inject PactClient _pactClient
@@ -361,7 +363,6 @@
         }
         else
         {
-            
             if (string.IsNullOrWhiteSpace(cmdModel.Command.Nonce))
                 cmdModel.Command.Nonce = DateTime.UtcNow.ToLongDateString().HashEncoded();
             
@@ -434,6 +435,17 @@
         RemoveAppliedSignatures();
         resultsText = resp;
         StateHasChanged();
+
+        if (resp.Length == 43)
+        {
+            await _transactionHistory.AddSentTransaction(new SentTransaction()
+            {
+                Chain = _sentCommand.Command.Metadata.ChainId,
+                NetworkId = _sentCommand.Command.NetworkId,
+                RequestKey = resp,
+                Timestamp = DateTime.UtcNow
+            });
+        }
 
         inputEnabled = true;
         StateHasChanged();

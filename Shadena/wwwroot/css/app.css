@@ -174,3 +174,11 @@ a, .btn-link {
     from { opacity: 1.0; }
     to   { opacity: 0.35; }
 }
+
+.recent-tx {
+    color: #fff;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    inline-size: 90%;
+}

@@ -7,6 +7,7 @@
 @inject PactClient _pactClient
 @inject IChainwebQueryService _chainwebQueryService
 @inject NavigationManager _navigationManager
+@inject PollService _pollService
 
 <div class="container-fluid @(_loading ? "loading" : "")">
     <div class="row row-cols-auto align-content-center">
@@ -49,6 +50,10 @@
                 <div class="col">
                     <small>BLOCK HASH</small>
                     <pre>@_commandResponse.Metadata.BlockHash</pre>
+                </div>
+                <div class="col">
+                    <small>BLOCK HEIGHT</small>
+                    <pre>@_commandResponse.Metadata.BlockHeight</pre>
                 </div>
 
                 @if (_command?.Command?.Metadata != null)
@@ -93,7 +98,32 @@
         <div class="row">
             <div class="col">
                 <small>RESULT</small>
-                <textarea class="form-control" readonly>@(_commandResponse.Result.Data)</textarea>
+                <textarea class="form-control code-textarea" readonly>@(_commandResponse.Result.Data)</textarea>
+            </div>
+        </div>
+    }
+    @if (_commandResponse?.Events?.Any() == true)
+    {
+        <div class="row">
+            <div class="col">
+                <small>EVENTS</small>
+                <table class="table">
+                    <thead>
+                    <th>MODULE NAME</th>
+                    <th>EVENT NAME</th>
+                    <th>ARGUMENTS</th>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in _commandResponse.Events)
+                    {
+                        <tr>
+                            <td><span class="code-display">@(e.Module)</span></td>
+                            <td><span class="code-display">@e.Name</span></td>
+                            <td><span class="code-display">@(string.Join(' ', e.Parameters.Select(arg => arg is string strArg ? '"' + strArg + '"' : arg)))</span></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
             </div>
         </div>
     }
@@ -108,13 +138,13 @@
         <div class="row">
             <div class="col">
                 <small>ERROR MESSAGE</small>
-                <textarea class="form-control" readonly>@(_commandResponse.Result.Error.Message)</textarea>
+                <textarea class="form-control code-textarea" readonly>@(_commandResponse.Result.Error.Message)</textarea>
             </div>
         </div>
         <div class="row">
             <div class="col">
                 <small>STACK TRACE</small>
-                <textarea class="form-control" readonly>@(string.Join('\n', _commandResponse.Result.Error.CallStack))</textarea>
+                <textarea class="form-control code-textarea" readonly>@(string.Join('\n', _commandResponse.Result.Error.CallStack))</textarea>
             </div>
         </div>
     }
@@ -196,13 +226,13 @@
         <div class="row">
             <div class="col">
                 <small>CODE</small>
-                <textarea class="form-control" readonly>@(_command.Command.Payload.Exec.Code)</textarea>
+                <textarea class="form-control code-textarea" readonly>@(_command.Command.Payload.Exec.Code)</textarea>
             </div>
         </div>
         <div class="row">
             <div class="col">
                 <small>DATA</small>
-                <textarea class="form-control" readonly>@(_command.Command.Payload.Exec.Data.ToJsonString())</textarea>
+                <textarea class="form-control code-textarea" readonly>@(_command.Command.Payload.Exec.Data.ToJsonString())</textarea>
             </div>
         </div>
     }
@@ -307,7 +337,7 @@
         _loading = true;
         StateHasChanged();
         if (_commandResponse == null)
-            _commandResponse = await _pactClient.PollRequestAsync(_targetChain, _targetRequestKey);
+            _commandResponse = await _pollService.PollRequestAsync(_targetChain, _targetRequestKey);
 
         if (_commandResponse != null && _command == null)
             _command = await _chainwebQueryService.FetchTransactionAsync(_targetChain, _commandResponse.Metadata.BlockHash, _targetRequestKey);

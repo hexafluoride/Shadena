@@ -1,28 +1,85 @@
 @page "/TransactionDetails"
 @using PactSharp
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Net.Http.Headers
 
 @inject PactClient _pactClient
+@inject TransactionHistoryService _transactionHistory
+@inject PollService _pollService
 
 <div class="container">
     <h3>View transaction</h3>
     <div class="row">
         <div class="col-4">
-            <div class="mb-3">
-                <label>Chain</label>
-                <select class="form-select" @bind="@_chainId">
-                    @foreach (var chain in _pactClient.RecognizedChains)
-                    {
-                        <option value="@chain">@chain</option>
-                    }
-                </select>
-            </div>
-            <div class="mb-3">
-                <label>Request key</label>
-                <input type="text" class="form-control" placeholder="" aria-label="Request key" @bind="@_requestKey"/>
-            </div>
-            <div class="mb-3">
-                <button class="btn btn-success" type="button" @onclick="Lookup"><span class="oi oi-magnifying-glass" aria-hidden="true"></span> Query</button>
+            <div class="accordion mb-3">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="request-key-heading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#request-key-collapse" aria-expanded="true" aria-controls="request-key-collapse">
+                            Request key
+                        </button>
+                    </h2>
+                    <div id="request-key-collapse" class="accordion-collapse collapse show" aria-labelledby="request-key-heading">
+                        <div class="accordion-body">
+                            <div class="mb-3">
+                                <label>Chain</label>
+                                <select class="form-select" @bind="@_chainId">
+                                    @foreach (var chain in _pactClient.RecognizedChains)
+                                    {
+                                        <option value="@chain">@chain</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label>Request key</label>
+                                <input type="text" class="form-control" placeholder="" aria-label="Request key" @bind="@_requestKey"/>
+                            </div>
+                            <div class="mb-3">
+                                <button class="btn btn-success" type="button" @onclick="Lookup"><span class="oi oi-magnifying-glass" aria-hidden="true"></span> Query</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="sent-tx-heading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sent-tx-collapse" aria-expanded="true" aria-controls="sent-tx-collapse">
+                            Sent transactions
+                        </button>
+                    </h2>
+                    <div id="sent-tx-collapse" class="accordion-collapse collapse show" aria-labelledby="sent-tx-heading">
+                        <div class="accordion-body">
+                            @if (_transactions?.Any() != true)
+                            {
+                                <p>No recent transactions.</p>
+                            }
+                            else
+                            {
+                                <ul class="list-group">
+                                    @foreach (var tx in _transactions)
+                                    {
+                                        var status = _transactionStatus.ContainsKey(tx.RequestKey) ? _transactionStatus[tx.RequestKey]
+                                            : TransactionStatus.Waiting;
+                                        var statusIcon = status switch
+                                        {
+                                            TransactionStatus.Successful => "oi-check",
+                                            TransactionStatus.Failed => "oi-x",
+                                            TransactionStatus.Waiting => "oi-clock"
+                                        };
+                                        var statusColor = status switch
+                                        {
+                                            TransactionStatus.Successful => "#00bc8c",
+                                            TransactionStatus.Failed => "#e74c3c",
+                                            TransactionStatus.Waiting => "#f39c12"
+                                        };
+                                        <li class="list-group-item code-display">
+                                            <button type="button" class="btn btn-link recent-tx" @onclick="() => LookupSentTransaction(tx)">@tx.RequestKey</button>
+                                            <span style="top: 3px; color: @(statusColor)" class="oi @(statusIcon)"></span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col-8">
@@ -38,9 +95,79 @@
     private string _requestKey;
     private string _chainId = "0";
 
+    private int _recentTxCount = 20;
+    
+    private IEnumerable<SentTransaction> _transactions;
+    private Dictionary<string, TransactionStatus> _transactionStatus = new();
+
+    private System.Timers.Timer timer;
+    
+    private enum TransactionStatus
+    {
+        Successful,
+        Failed,
+        Waiting
+    }
+
+    private async Task<TransactionStatus> QueryTransactionStatus(SentTransaction tx)
+    {
+        if (_transactionStatus.ContainsKey(tx.RequestKey))
+            return _transactionStatus[tx.RequestKey];
+
+        var pollResponse = await _pollService.PollRequestAsync(tx.Chain, tx.RequestKey);
+        if (pollResponse == null)
+            return TransactionStatus.Waiting;
+
+        if (pollResponse.Result.Error != null)
+            return _transactionStatus[tx.RequestKey] = TransactionStatus.Failed;
+        
+        return _transactionStatus[tx.RequestKey] = TransactionStatus.Successful;
+    }
+
     private void Lookup()
     {
         _submittedRequestKey = _requestKey;
         _submittedChainId = _chainId;
+    }
+
+    private void LookupSentTransaction(SentTransaction tx)
+    {
+        _submittedChainId = tx.Chain;
+        _submittedRequestKey = tx.RequestKey;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        _transactions = await _transactionHistory.GetSentTransactions();
+        _transactions = _transactions.Where(t => t.NetworkId == _pactClient.NetworkId).OrderByDescending(t => t.Timestamp).Take(_recentTxCount);
+        foreach (var tx in _transactions)
+            await QueryTransactionStatus(tx);
+        
+        if (timer == null)
+        {
+            timer = new System.Timers.Timer();
+            timer.Interval = 5000;
+            timer.Elapsed += async (s, e) => { await CheckRecentTransactionStatus(); };
+            timer.Enabled = true;
+        }
+    }
+
+    private async Task CheckRecentTransactionStatus()
+    {
+        bool stateHasChanged = false;
+        foreach (var tx in _transactions)
+        {
+            if (!_transactionStatus.ContainsKey(tx.RequestKey) || _transactionStatus[tx.RequestKey] == TransactionStatus.Waiting)
+            {
+                Console.WriteLine($"{tx.RequestKey} needs refresh");
+                var newStatus = await QueryTransactionStatus(tx);
+                if (newStatus != TransactionStatus.Waiting)
+                    stateHasChanged = true;
+            }
+        }
+        
+        if (stateHasChanged)
+            StateHasChanged();
     }
 }

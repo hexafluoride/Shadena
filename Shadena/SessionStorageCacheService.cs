@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Blazored.LocalStorage;
+using PactSharp;
 using PactSharp.Services;
 
 namespace Shadena;
@@ -45,7 +46,7 @@ public class SessionStorageCacheService : ICacheService
         {
             if (cached != null)
             {
-                cached.Contents = JsonSerializer.SerializeToElement(item);
+                cached.Contents = JsonSerializer.SerializeToElement(item, PactClient.PactJsonOptions);
                 cached.Cached = DateTime.UtcNow;
                 cached.Expires = cached.Cached + length;
                 cached.Invalidate();
@@ -168,7 +169,7 @@ public class SessionStorageCacheService : ICacheService
                 Cached = DateTime.UtcNow,
                 Expires = DateTime.UtcNow + expiry,
                 Key = item.CacheKey,
-                Contents = JsonSerializer.SerializeToElement(item)
+                Contents = JsonSerializer.SerializeToElement(item, PactClient.PactJsonOptions)
             };
 
             return ret;
@@ -183,7 +184,7 @@ public class SessionStorageCacheService : ICacheService
         internal T Unwrap<T>() where T : ICacheable
         {
             if (_unwrapped == null)
-                _unwrapped = Contents.Deserialize<T>();
+                _unwrapped = Contents.Deserialize<T>(PactClient.PactJsonOptions);
             
             return (T)_unwrapped;
         }

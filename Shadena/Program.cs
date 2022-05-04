@@ -17,6 +17,8 @@ builder.Services.AddScoped<SessionStorageSettingsManager>();
 builder.Services.AddScoped<ICacheService, SessionStorageCacheService>();
 builder.Services.AddScoped<PactClient>(sp => new PactClient(new HttpClient()));
 builder.Services.AddScoped<IChainwebQueryService, ChainwebQueryService>();
+builder.Services.AddScoped<TransactionHistoryService>();
+builder.Services.AddScoped<PollService>();
 
 var host = builder.Build();
 
