@@ -3,18 +3,61 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using PactSharp
 @using PactSharp.Types
+@using Chaos.NaCl
 
 @implements IDisposable
 
 @inject NavigationManager navigationManager
 @inject IKeypairManager keypairManager
 
+
+<!-- Modal -->
+<div class="modal fade" id="verify-modal" tabindex="-1" aria-labelledby="verify-modal-label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="verify-modal-label">Verify signature</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+        <div class="modal-body">
+            <div class="mb-3">
+                <div class="row">
+                    <div class="col">
+                        <label>Public key</label>
+                        <input class="form-control" placeholder="" aria-label="Public key" type="text" @bind="verifyPubkey"/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <label>Signature</label>
+                        <input class="form-control" placeholder="" aria-label="Signature" type="text" @bind="verifySignature"/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <label>Data (base64url)</label>
+                        <textarea class="form-control" placeholder="" aria-label="Data" type="text" @bind="verifyData"/>
+                    </div>
+                </div>
+                <div class="row">
+                    <span>@verifyStatus</span>
+                </div>
+                <button type="button" class="btn btn-info" @onclick="() => VerifySignature()">Verify</button>
+            </div>
+        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="container">
     <div class="alert alert-warning" role="alert">
         Shadena never stores your private keys anywhere other than your browser's local storage, but this is not 
         a very safe place either. Avoid importing high-value or personal keypairs. Shadena supports signing transactions
         externally, which is best practice. Only use this page if you fully grasp the security tradeoff you are making 
-        for convenience's sake.  
+        for convenience's sake.
     </div>
 
     <h3>Manage keypairs</h3>
@@ -23,6 +66,7 @@
     <div class="row">
         <div class="col">
             <button class="btn btn-outline-info" type="button" @onclick="@GenerateKeypair"><span class="oi oi-key" aria-hidden="true"></span> Generate</button>
+            <button class="btn btn-info" type="button" data-bs-toggle="modal" data-bs-target="#verify-modal"><span class="oi oi-check" aria-hidden="true"></span> Verify signature</button>
         </div>
         <div class="col">
             <div class="input-group">
@@ -93,6 +137,51 @@
 
     private string[] dataToSign = new string[0];
     private string[] signatures = new string[0];
+
+    private string verifyPubkey = "";
+    private string verifySignature = "";
+    private string verifyData = "";
+    private string verifyStatus = "";
+
+    private string lastPubkey = "";
+
+    private async Task VerifySignature()
+    {
+        try
+        {
+            if (verifyPubkey.Length != 64)
+            {
+                verifyStatus = "Invalid pubkey.";
+                return;
+            }
+
+            if (verifySignature.Length != 128)
+            {
+                verifyStatus = "Invalid signature.";
+                return;
+            }
+
+            var data = Base64UrlTextEncoder.Decode(verifyData);
+            var signature = verifySignature.ToByteArray();
+            var pubkey = verifyPubkey.ToByteArray();
+            var signatureValid = Ed25519.Verify(signature, data, pubkey);
+
+            if (signatureValid)
+            {
+                verifyStatus = "Signature is valid.";
+            }
+            else
+            {
+                verifyStatus = "Signature is invalid.";
+            }
+
+        }
+        catch (Exception e)
+        {
+            verifyStatus = $"Error: ({e.Message})";
+            Console.WriteLine(e);
+        }
+    }
     
     protected override async Task OnInitializedAsync()
     {
