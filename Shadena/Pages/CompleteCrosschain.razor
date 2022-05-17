@@ -12,8 +12,8 @@
 @inject IAccountsManager _accountsManager
 @inject PactClient _pactClient
 
-<h3>Complete crosschain transaction</h3>
 <div class="container">
+    <h3>Complete crosschain transaction</h3>
     <div class="row">
         <div class="col">
             <div class="@GetClassForStepId("waitingForInput")">
@@ -110,11 +110,11 @@
                                 </div>
                             </div>
                         </div>
-                    
-                        <div class="mb-3">
-                            <h4>Message data</h4>
-                            <TransactionDataControl Transaction="_cmdModel.Command" DataChanged="Synchronize"/>
-                        </div>
+                        @* *@
+                        @* <div class="mb-3"> *@
+                        @*     <h4>Message data</h4> *@
+                        @*     <TransactionDataControl Transaction="_cmdModel.Command" DataChanged="Synchronize"/> *@
+                        @* </div> *@
                     </div>
                     @* <div class="mb-3"> *@
                     @*     <label>Chain</label> *@
@@ -342,7 +342,8 @@
             rollback: false,
             step: _priorCommandResponse.Continuation.Step + 1,
             proof: await _pactClient.ObtainSpvAsync(_priorCommand.Command.Metadata.ChainId, targetChain, _priorCommandResponse.RequestKey),
-            data: null);
+            data: new {});
+        _cmdModel.Command.Payload.Exec = null;
         
         StateHasChanged();
 
