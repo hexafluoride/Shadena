@@ -13,7 +13,7 @@ public class SettingsModel
     {
         return new PactClientSettings(
             network: Network, 
-            customNetworkEndpoint: CustomNetworkEndpoint,
+            customNetworkRpcEndpoint: CustomNetworkEndpoint,
             customNetworkId: CustomNetworkId);
     }
 }
