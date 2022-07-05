@@ -2,6 +2,8 @@
 @using PactSharp
 @using PactSharp.Types
 @using System.ComponentModel.DataAnnotations
+@using Chaos.NaCl
+@using Microsoft.AspNetCore.WebUtilities
 
 @inject IKeypairManager _keypairManager
 
@@ -29,11 +31,14 @@
             
             <div class="input-group">
                 <input type="text" class="form-control" readonly=@signatureLockedWithKeypair @bind="signaturesCopied[signerIndex].Signature" 
-                       placeholder="@(signatureLockedWithKeypair ? $"Automatically signed by {signer.PubKey}" : $"Enter signature from {signer.PubKey}")"/>
+                       placeholder="@(signatureLockedWithKeypair ? $"Automatically signed by {signer.PubKey}" : $"Enter signature from {signer.PubKey}")"
+                       oninput="@FixIncomingSignature(signerIndex)"/>
                 @{
                     if (signatureHasKeypair)
                     {
                         <button class="btn @(signatureLockedWithKeypair ? "btn-primary" : "btn-outline-primary") btn-sm" type="button"
+                                 data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" 
+                                                                                                                 title="Sign automatically"
                                 @onclick="@(() => ToggleAttached(signer))"><span class="oi oi-lock-locked" aria-hidden="true"></span></button>
                     }
                 }
@@ -61,6 +66,7 @@
     bool[] keypairAvailable = new bool[0];
 
     List<PactKeypair> keypairs;
+    string[] prevSignatures = new string[0];
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
@@ -70,9 +76,67 @@
         await SynchronizeNumberAsync();
     }
 
+    private async Task FixIncomingSignature(int index)
+    {
+        if (Transaction?.Command != null && Transaction.Command.Signers != null && Transaction.Command.Signers.Count == Transaction.Signatures?.Length)
+        {
+            var signature = Transaction.Signatures[index];
+
+            if (prevSignatures.Length > index && signature.Signature == prevSignatures[index])
+                return;
+
+            if (signature.Signature?.Length != 128)
+            {
+                //Console.WriteLine($"Wrong signature length {signature.Signature.Length}");
+                return;
+            }
+            
+            var hash = Base64UrlTextEncoder.Decode(Transaction.Hash);
+            var signerAtLocation = Transaction.Command.Signers[index];
+            var pubkey = signerAtLocation.PubKey.ToByteArray();
+            var signatureBytes = signature.Signature?.ToByteArray() ?? new byte[0];
+
+            var prevSignature = prevSignatures[index];
+            prevSignatures[index] = signature.Signature;
+
+            if (Ed25519.Verify(signatureBytes, hash, pubkey))
+            {
+                //Console.WriteLine($"Signature match");
+                return;
+            }
+
+            for (int i = 0; i < Transaction.Command.Signers.Count; i++)
+            {
+                if (i == index)
+                    continue;
+
+                var possibleSigner = Transaction.Command.Signers[i];
+                var possibleSignerPubkey = possibleSigner.PubKey.ToByteArray();
+
+                if (Ed25519.Verify(signatureBytes, hash, possibleSignerPubkey))
+                {
+                    //Console.WriteLine($"Signature actually belongs to {possibleSigner.PubKey}");
+                    if (SigningKeypairs[i] == null)
+                    {
+                        Transaction.Signatures[i] = new PactSignature(signature.Signature ?? "");
+                        Transaction.Signatures[index] = prevSignature == null ? new PactSignature() : new PactSignature(prevSignature);
+                        prevSignatures[index] = prevSignature;
+                        StateHasChanged();
+                    }
+                    return;
+                }
+            }
+            
+            //Console.WriteLine($"Signature mismatch");
+        }
+    }
+
     public async Task ToggleAttached(PactSigner signer)
     {
-        var index = Transaction.Command.Signers.IndexOf(signer);
+        var index = Transaction?.Command?.Signers?.IndexOf(signer) ?? -1;
+
+        if (index == -1)
+            return;
 
         if (SigningKeypairs[index] != null)
         {
@@ -101,6 +165,7 @@
         var newSigs = new PactSignature[Transaction.Command.Signers.Count];
         var newKeypairs = new PactKeypair[newSigs.Length];
         var newKeypairAvailable = new bool[newSigs.Length];
+        var newPrevSignatures = new string[newSigs.Length];
         
         for (int i = 0; i < newSigs.Length; i++)
         {
@@ -114,6 +179,8 @@
             newSigs[i] = Transaction.Signatures[i];
             newKeypairs[i] = SigningKeypairs.Length > i ? SigningKeypairs[i] : null;
         }
+        
+        Array.Copy(prevSignatures, newPrevSignatures, Math.Min(prevSignatures.Length, newPrevSignatures.Length));
 
         await Task.Run(delegate
         {
@@ -126,6 +193,7 @@
         Transaction.Signatures = newSigs;
         SigningKeypairs = newKeypairs;
         keypairAvailable = newKeypairAvailable;
+        prevSignatures = newPrevSignatures;
 
         await SigningKeypairsChanged.InvokeAsync(SigningKeypairs);
         StateHasChanged();
