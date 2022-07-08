@@ -221,7 +221,15 @@
                         </div>
                         <div class="col">
                             <lable>Creation time</lable>
-                            <InputNumber class="form-control" aria-label="Creation time" @bind-Value="cmdModel.Command.Metadata.CreationTime"/>
+                            <div class="input-group">
+                                <InputNumber class="form-control" aria-label="Creation time" @bind-Value="cmdModel.Command.Metadata.CreationTime"/>
+                                <button class="btn btn-outline-primary btn-sm" type="button" 
+                                        @onclick="@(() => 
+                                                  {
+                                                      cmdModel.Command.Metadata.CreationTime = (long) (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
+                                                      StateHasChanged();
+                                                  })"><span class="oi oi-clock" aria-hidden="true"></span></button>
+                            </div>
                         </div>
                     </div>
                 </div>
