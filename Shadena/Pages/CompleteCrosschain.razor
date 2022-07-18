@@ -328,9 +328,9 @@
         _cmdModel = new PactCommand();
         _cmdModel.Command = new PactCmd(
             metadata: 
-                _pactClient.GenerateMetadata(gasLimit: 400, 
-                gasPrice: 0.000000001m, 
-                sender: "free-x-chain-gas", 
+                _pactClient.GenerateMetadata(gasLimit: 500, 
+                gasPrice: 0.00000001m, 
+                sender: "kadena-xchain-gas", 
                 chain: targetChain),
             networkId: _priorCommand.Command.NetworkId);
         
