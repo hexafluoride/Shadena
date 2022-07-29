@@ -167,6 +167,8 @@
                 
                     <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">Show transaction result</button>
 
+                    <button class="btn btn-primary" type="button" @onclick="UpdateParseTree">Parse code</button>
+
                 </div>
                 <div class="mb-3">
                     <label>Transaction hash <span class="fas fa-info-circle fa-xs" style="opacity:0.8;" data-bs-trigger="hover focus click" data-bs-toggle="tooltip" data-bs-placement="top" 
@@ -179,6 +181,12 @@
                 
                 <div class="mb-3">
                     <SignaturesControl Transaction="cmdModel" SignaturesChanged="@(async () => await Synchronize())" @bind-SigningKeypairs="signingKeypairs" />
+                </div>
+                
+                <div class="mb-3">
+                    <textarea class="form-control">
+@(_symbolDump)
+</textarea>
                 </div>
                 
                 <div class="mb-3">
@@ -272,6 +280,9 @@
     bool _editorInitialized = false;
 
     ImportModel Import { get; set; } = new();
+
+    RangeMap _rangeMap;
+    string _symbolDump = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -394,6 +405,88 @@
             await Synchronize();
             StateHasChanged();
         }
+    }
+
+    string contents = "";
+    
+    int GetAbsoluteIndex(int line, int column)
+    {
+        var linesPast = 0;
+        var nextLineIndex = 0;
+
+        while (linesPast < line)
+        {
+            nextLineIndex = contents.IndexOf('\n', nextLineIndex + 1);
+            linesPast++;
+        }
+
+        return nextLineIndex + column;
+    }
+
+    [JSInvokable]
+    public async Task<Symbol[]> GetSymbolsAtLocation(int line, int column)
+    {
+        var location = GetAbsoluteIndex(line + 1, column);
+        
+        // resolve caret location to token in parse tree
+        var maybeToken = _rangeMap.GetContext(location);
+
+        if (!maybeToken.HasValue)
+            return Array.Empty<Symbol>();
+
+        var token = maybeToken.Value;
+
+        // fetch available symbols at that parse tree location
+        var availableSymbols = new List<Symbol>();
+
+        for (int i = 0; i < _rangeMap.AvailableSymbols.Count; i++)
+        {
+            var symbol = _rangeMap.AvailableSymbols[i];
+            for (int j = 0; j < token.Tokens.Length; j++)
+            {
+                if (symbol.Scope.Token == token.Tokens[j].Index)
+                {
+                    availableSymbols.Add(symbol);
+                    break;
+                }
+            }
+        }
+        //
+        // foreach (var symbol in _rangeMap.AvailableSymbols)
+        // {
+        //     
+        //     if (token.Tokens.Contains(_rangeMap.ExpressionIndex[symbol.Scope.Token]))
+        //         availableSymbols.Add(symbol);
+        // }
+        
+        // return
+        return availableSymbols.ToArray();
+    }
+    
+    bool _attached = false;
+
+    object dotNetHelper;
+    
+    private async Task UpdateParseTree()
+    {
+        if (!_attached)
+        {
+            dotNetHelper = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("window.attachInstance", dotNetHelper);
+        }
+        
+        await CheckForNewCode();
+        var document = cmdModel.Command.Payload.Exec.Code.AsMemory();
+        var documentAsMemory = new TextReference(document);
+
+        contents = document.Span.ToString();
+
+        var documentParsed = new BodyPactExpression(documentAsMemory, null);
+        var rangeMap = new RangeMap(documentAsMemory);
+        _rangeMap = rangeMap;
+        _rangeMap.Index(documentParsed);
+        _symbolDump = string.Join('\n', rangeMap.AvailableSymbols.Select(symbol => $"Found {symbol.Type} symbol \"{symbol.Name}\" with fully qualified name \"{symbol.FullyQualifiedName}\""));
+        
     }
 
     private async Task Synchronize()
